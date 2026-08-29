@@ -57,8 +57,12 @@ function Load-Data {
                         $script:records += [PSCustomObject]@{
                             Date = $parts[0]
                             Conc = $parts[1]
-                            N1 = $nums[0]; $N2 = $nums[1]; $N3 = $nums[2]
-                            N4 = $nums[3]; $N5 = $nums[4]; $N6 = $nums[5]
+                            N1 = $nums[0]
+                            N2 = $nums[1]
+                            N3 = $nums[2]
+                            N4 = $nums[3]
+                            N5 = $nums[4]
+                            N6 = $nums[5]
                             Nums = $nums
                             Sum = ($nums | Measure-Object -Sum).Sum
                             Jolly = [int]$parts[8]
@@ -114,10 +118,9 @@ function Test-Prime($n) {
 }
 
 function Update-CSV {
-    $script:statusLabel.Text = "Tentativo con API..."
+    $script:statusLabel.Text = "Tentativo API principale..."
     $script:form.Refresh()
     
-    # Usa la stessa API di sniper_full.ps1 (lotteryresultsfeed.com)
     $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
     try {
         $headers = @{ "X-API-KEY" = $apiKey }
@@ -144,38 +147,42 @@ function Update-CSV {
         }
         
         if ($newCount -gt 0) {
-            $script:statusLabel.Text = "Aggiunti $newCount estrazioni!"
+            $script:statusLabel.Text = "OK! Aggiunti $newCount estrazioni da API!"
             Load-Data
         } else {
-            $script:statusLabel.Text = "Dati gia aggiornati."
+            $script:statusLabel.Text = "API OK. Dati gia aggiornati."
+            Load-Data
         }
     } catch {
-        $script:statusLabel.Text = "API non disponibile`nUsa dati locali"
+        $script:statusLabel.Text = "API non disponibile. Fallback CSV locale...`n"
+        $script:form.Refresh()
         
-        # Fallback: usa l'ultima estrazione dal CSV per non perdere le stats
         if (Test-Path $csvPath) {
             $lines = Get-Content $csvPath | Select-Object -Skip 1
-            $latestDate = "1997-12-03"
-            foreach ($l in $lines) {
-                $p = $l -split ','
-                if ($p.Count -ge 2 -and $p[0] -gt $latestDate) { $latestDate = $p[0] }
+            if ($lines) {
+                $last = $lines | Select-Object -Last 1
+                $parts = $last -split ','
+                if ($parts.Count -ge 2) {
+                    $script:lastDrawDate = $parts[0]
+                    $script:statusLabel.Text += "Ultima estrazione: $($parts[0])"
+                }
             }
-            $script:lastDrawDate = $latestDate
         }
+        Load-Data
     }
 }
 
 function Get-Jackpot {
-    # Usa la stessa API di sniper_full.ps1
     $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
     try {
         $headers = @{ "X-API-KEY" = $apiKey }
         $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
         if ($response.results -ne $null -and $response.results.Count -gt 0) {
-            $jp = $response.results[0].jackpot
-            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { $jp }
+            $jp = $response.results[0].jackpot | [double]
+            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { 0 }
             if ($script:jackpotLabel) {
-                $script:jackpotLabel.Text = "Jackpot: EUR " + $script:jackpot + "M"
+                $jackDisplay = if ($script:jackpot -gt 0) { "EUR " + $script:jackpot + "M" } else { "N/D" }
+                $script:jackpotLabel.Text = "Jackpot: $jackDisplay"
             }
         } else {
             $script:jackpot = 0

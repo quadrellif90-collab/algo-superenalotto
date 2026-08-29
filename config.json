@@ -1,5 +1,5 @@
 {
-  "apiKey": "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d",
-  "apiUrl": "https://api.lotteryresultsfeed.com",
-  "lotteryId": 712
+    "lotteryId":  712,
+    "apiKey":  "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d",
+    "apiUrl":  "https://api.lotteryresultsfeed.com"
 }
