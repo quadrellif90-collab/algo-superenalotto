@@ -33,17 +33,21 @@ function Test-Prime($n) {
 }
 
 function Get-Stats {
-    $lines = Get-Content $csvPath -Encoding UTF8 | Select-Object -Skip 1
+    $lines = Get-Content $csvPath
     $records = @()
     foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
         $parts = $line -split ','
-        if ($parts.Count -ge 9) {
+        if ($parts.Count -ge 8) {
             try {
-                $nums = @([int]($parts[2].Trim()), [int]($parts[3].Trim()), [int]($parts[4].Trim()),
-                           [int]($parts[5].Trim()), [int]($parts[6].Trim()), [int]($parts[7].Trim()))
-                if ($nums.All({$_ -ge 1 -and $_ -le 90})) {
+                $nums = @()
+                for ($i = 2; $i -le 7; $i++) {
+                    $val = $parts[$i].Trim()
+                    if ($val -ne "") { $nums += [int]$val }
+                }
+                if ($nums.Count -eq 6) {
                     $records += [PSCustomObject]@{
-                        Date = $parts[0]
+                        Date = $parts[0].Trim()
                         Nums = $nums
                         Sum = ($nums | Measure-Object -Sum).Sum
                     }
