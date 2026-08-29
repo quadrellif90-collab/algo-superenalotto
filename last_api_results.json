@@ -1,0 +1,1653 @@
+﻿{
+    "lottery":  {
+                    "id":  712,
+                    "country":  "it",
+                    "country_info":  {
+                                         "id":  112,
+                                         "name":  "Italy",
+                                         "alpha2":  "IT",
+                                         "alpha3":  "ITA",
+                                         "iso_numeric":  380,
+                                         "currency_code":  "EUR",
+                                         "currency_name":  "Euro",
+                                         "currency_symbol":  "€",
+                                         "flag":  "https://www.lotteryresultsfeed.com/assets/images/country-flags-rectangular/svg/011-italy.svg",
+                                         "flag_url":  "https://www.lotteryresultsfeed.com/assets/images/country-flags-rectangular/svg/011-italy.svg"
+                                     },
+                    "state":  "it",
+                    "state_info":  null,
+                    "name":  "SuperEnalotto",
+                    "slug":  "superenalotto",
+                    "main_balls_to_pick":  6,
+                    "main_ball_start_number":  1,
+                    "main_balls_count":  90,
+                    "bonus_balls_to_pick":  1,
+                    "bonus_ball_start_number":  1,
+                    "bonus_balls_count":  90,
+                    "bonus_balls_name":  "Jolly",
+                    "bonus_balls_name_short":  "JO",
+                    "is_multi_state":  0,
+                    "has_multiple_draws_per_day":  0,
+                    "draw_days":  {
+                                      "Monday":  "0",
+                                      "Tuesday":  "1",
+                                      "Wednesday":  "0",
+                                      "Thursday":  "1",
+                                      "Friday":  "1",
+                                      "Saturday":  "1",
+                                      "Sunday":  "0"
+                                  },
+                    "draw_times":  {
+                                       "timezone":  "Europe/Rome",
+                                       "default":  "20:00"
+                                   },
+                    "url":  "https://www.sisal.it/superenalotto/en",
+                    "logo_url":  "https://www.lotteryresultsfeed.com/images/lottery-logos/zit-superenalotto-1.svg",
+                    "jackpot_odds":  622614630,
+                    "prize_structure":  "\u003ctable class=\"table table-striped table-bordered table-hover table-sm\"\u003e\r\n\u003cthead\u003e\r\n\u003ctr\u003e\r\n\u003cth\u003eMatch\u003c/th\u003e\r\n\u003cth\u003eOdds\u003c/th\u003e\r\n\u003cth\u003eApproximate Payout\u003c/th\u003e\r\n\u003c/tr\u003e\r\n\u003c/thead\u003e\r\n\u003ctbody\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e6\u003c/td\u003e\r\n\u003ctd\u003e1 in 622,614,630\u003c/td\u003e\r\n\u003ctd\u003eJackpot (Varies)\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e5 + Jolly\u003c/td\u003e\r\n\u003ctd\u003e1 in 103,769,105\u003c/td\u003e\r\n\u003ctd\u003eVaries (Significant prize)\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e5\u003c/td\u003e\r\n\u003ctd\u003e1 in 2,333,636\u003c/td\u003e\r\n\u003ctd\u003eVaries\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e4\u003c/td\u003e\r\n\u003ctd\u003e1 in 11,180\u003c/td\u003e\r\n\u003ctd\u003eVaries\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e3\u003c/td\u003e\r\n\u003ctd\u003e1 in 327\u003c/td\u003e\r\n\u003ctd\u003eVaries\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003ctr\u003e\r\n\u003ctd\u003e2\u003c/td\u003e\r\n\u003ctd\u003e1 in 22\u003c/td\u003e\r\n\u003ctd\u003eVaries\u003c/td\u003e\r\n\u003c/tr\u003e\r\n\u003c/tbody\u003e\r\n\u003c/table\u003e",
+                    "info":  "",
+                    "ticket_price":  "1.00",
+                    "results_latest":  {
+                                           "id":  2530158,
+                                           "lottery_id":  712,
+                                           "draw_date":  "2026-08-28",
+                                           "draw_type":  null,
+                                           "balls":  [
+                                                         4,
+                                                         8,
+                                                         27,
+                                                         62,
+                                                         70,
+                                                         79
+                                                     ],
+                                           "ball_bonus":  [
+                                                              60,
+                                                              55
+                                                          ],
+                                           "card_suits":  null,
+                                           "machine":  null,
+                                           "ball_set":  null,
+                                           "jackpot":  45000,
+                                           "next_jackpot":  null,
+                                           "prize_breakdown":  [
+                                                                   {
+                                                                       "tier":  "WinBox 1 - €25",
+                                                                       "prize_per_winner":  25,
+                                                                       "winners":  1800,
+                                                                       "prize_fund":  45000
+                                                                   },
+                                                                   {
+                                                                       "tier":  "WinBox 2 - €500",
+                                                                       "prize_per_winner":  500,
+                                                                       "winners":  2,
+                                                                       "prize_fund":  1000
+                                                                   },
+                                                                   {
+                                                                       "tier":  "WinBox 2 - €100",
+                                                                       "prize_per_winner":  100,
+                                                                       "winners":  27,
+                                                                       "prize_fund":  2700
+                                                                   },
+                                                                   {
+                                                                       "tier":  "WinBox 2 - €20",
+                                                                       "prize_per_winner":  20,
+                                                                       "winners":  227,
+                                                                       "prize_fund":  4540
+                                                                   },
+                                                                   {
+                                                                       "tier":  "WinBox 2 - €2",
+                                                                       "prize_per_winner":  2,
+                                                                       "winners":  221563,
+                                                                       "prize_fund":  443126
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 6",
+                                                                       "prize_per_winner":  215879794.97,
+                                                                       "winners":  0,
+                                                                       "prize_fund":  0
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 5 + Jolly",
+                                                                       "prize_per_winner":  0,
+                                                                       "winners":  0,
+                                                                       "prize_fund":  0
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 5",
+                                                                       "prize_per_winner":  75110.35,
+                                                                       "winners":  2,
+                                                                       "prize_fund":  150220.7
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 4",
+                                                                       "prize_per_winner":  295.88,
+                                                                       "winners":  521,
+                                                                       "prize_fund":  154153.48
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 3",
+                                                                       "prize_per_winner":  21.24,
+                                                                       "winners":  21738,
+                                                                       "prize_fund":  461715.12
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 2",
+                                                                       "prize_per_winner":  5,
+                                                                       "winners":  320491,
+                                                                       "prize_fund":  1602455
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 5 + Superstar",
+                                                                       "prize_per_winner":  0,
+                                                                       "winners":  0,
+                                                                       "prize_fund":  0
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 4 + Superstar",
+                                                                       "prize_per_winner":  29588,
+                                                                       "winners":  7,
+                                                                       "prize_fund":  207116
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 3 + Superstar",
+                                                                       "prize_per_winner":  2124,
+                                                                       "winners":  121,
+                                                                       "prize_fund":  257004
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 2 + Superstar",
+                                                                       "prize_per_winner":  100,
+                                                                       "winners":  2190,
+                                                                       "prize_fund":  219000
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 1 + Superstar",
+                                                                       "prize_per_winner":  10,
+                                                                       "winners":  12565,
+                                                                       "prize_fund":  125650
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Match 0 + Superstar",
+                                                                       "prize_per_winner":  5,
+                                                                       "winners":  25703,
+                                                                       "prize_fund":  128515
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Seconda Chance 1",
+                                                                       "prize_per_winner":  50,
+                                                                       "winners":  87,
+                                                                       "prize_fund":  4350
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Seconda Chance 2",
+                                                                       "prize_per_winner":  3,
+                                                                       "winners":  13183,
+                                                                       "prize_fund":  39549
+                                                                   },
+                                                                   {
+                                                                       "tier":  "Totals",
+                                                                       "prize_per_winner":  null,
+                                                                       "winners":  620227,
+                                                                       "prize_fund":  3846094.3
+                                                                   }
+                                                               ],
+                                           "extra_draws":  null,
+                                           "result_published_at":  "2026-08-28T18:30:29+00:00"
+                                       }
+                },
+    "next_draw_date":  "2026-08-29T20:00:00+02:00",
+    "next_draw_timezone":  "Europe/Rome",
+    "results":  [
+                    {
+                        "draw_date":  "2026-08-28",
+                        "draw_type":  null,
+                        "balls":  [
+                                      4,
+                                      8,
+                                      27,
+                                      62,
+                                      70,
+                                      79
+                                  ],
+                        "ball_bonus":  [
+                                           60,
+                                           55
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  45000,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  1800,
+                                                    "prize_fund":  45000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  27,
+                                                    "prize_fund":  2700
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  227,
+                                                    "prize_fund":  4540
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  221563,
+                                                    "prize_fund":  443126
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  215879794.97,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  75110.35,
+                                                    "winners":  2,
+                                                    "prize_fund":  150220.7
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  295.88,
+                                                    "winners":  521,
+                                                    "prize_fund":  154153.48
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  21.24,
+                                                    "winners":  21738,
+                                                    "prize_fund":  461715.12
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  320491,
+                                                    "prize_fund":  1602455
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  29588,
+                                                    "winners":  7,
+                                                    "prize_fund":  207116
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2124,
+                                                    "winners":  121,
+                                                    "prize_fund":  257004
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  2190,
+                                                    "prize_fund":  219000
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  12565,
+                                                    "prize_fund":  125650
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  25703,
+                                                    "prize_fund":  128515
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  87,
+                                                    "prize_fund":  4350
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  13183,
+                                                    "prize_fund":  39549
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  620227,
+                                                    "prize_fund":  3846094.3
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-28T18:30:29+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-27",
+                        "draw_type":  null,
+                        "balls":  [
+                                      2,
+                                      27,
+                                      28,
+                                      50,
+                                      75,
+                                      84
+                                  ],
+                        "ball_bonus":  [
+                                           32,
+                                           40
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  57375,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2295,
+                                                    "prize_fund":  57375
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  23,
+                                                    "prize_fund":  2300
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  254,
+                                                    "prize_fund":  5080
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  265960,
+                                                    "prize_fund":  531920
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  215100000,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  63296.43,
+                                                    "winners":  3,
+                                                    "prize_fund":  189889.29
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  406.33,
+                                                    "winners":  477,
+                                                    "prize_fund":  193819.41
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  27.4,
+                                                    "winners":  21260,
+                                                    "prize_fund":  582524
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5.29,
+                                                    "winners":  341695,
+                                                    "prize_fund":  1807566.55
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  40633,
+                                                    "winners":  1,
+                                                    "prize_fund":  40633
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2740,
+                                                    "winners":  88,
+                                                    "prize_fund":  241120
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  1432,
+                                                    "prize_fund":  143200
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  10201,
+                                                    "prize_fund":  102010
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  22090,
+                                                    "prize_fund":  110450
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  110,
+                                                    "prize_fund":  5500
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  16500,
+                                                    "prize_fund":  49500
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  682391,
+                                                    "prize_fund":  4063887.25
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-27T18:15:17+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-25",
+                        "draw_type":  null,
+                        "balls":  [
+                                      15,
+                                      36,
+                                      62,
+                                      67,
+                                      69,
+                                      70
+                                  ],
+                        "ball_bonus":  [
+                                           32,
+                                           15
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  60700,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2428,
+                                                    "prize_fund":  60700
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  6,
+                                                    "prize_fund":  3000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  29,
+                                                    "prize_fund":  2900
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  291,
+                                                    "prize_fund":  5820
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  270007,
+                                                    "prize_fund":  540014
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  214233128.53,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  19398.97,
+                                                    "winners":  10,
+                                                    "prize_fund":  193989.7
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  447.79,
+                                                    "winners":  442,
+                                                    "prize_fund":  197923.18
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  33.17,
+                                                    "winners":  17941,
+                                                    "prize_fund":  595102.97
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  6.24,
+                                                    "winners":  295811,
+                                                    "prize_fund":  1845860.64
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  44779,
+                                                    "winners":  2,
+                                                    "prize_fund":  89558
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  3317,
+                                                    "winners":  155,
+                                                    "prize_fund":  514135
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  2133,
+                                                    "prize_fund":  213300
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  14281,
+                                                    "prize_fund":  142810
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  28591,
+                                                    "prize_fund":  142955
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  111,
+                                                    "prize_fund":  5550
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  16773,
+                                                    "prize_fund":  50319
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  649011,
+                                                    "prize_fund":  4603937.49
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-25T18:15:20+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-22",
+                        "draw_type":  null,
+                        "balls":  [
+                                      2,
+                                      16,
+                                      23,
+                                      31,
+                                      72,
+                                      85
+                                  ],
+                        "ball_bonus":  [
+                                           82,
+                                           14
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  60600,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2424,
+                                                    "prize_fund":  60600
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  21,
+                                                    "prize_fund":  2100
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  265,
+                                                    "prize_fund":  5300
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  276693,
+                                                    "prize_fund":  553386
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  213305588.36,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  40019.11,
+                                                    "winners":  5,
+                                                    "prize_fund":  200095.55
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  307.73,
+                                                    "winners":  663,
+                                                    "prize_fund":  204024.99
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  23.72,
+                                                    "winners":  25869,
+                                                    "prize_fund":  613612.68
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  392780,
+                                                    "prize_fund":  1963900
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  30773,
+                                                    "winners":  2,
+                                                    "prize_fund":  61546
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2372,
+                                                    "winners":  143,
+                                                    "prize_fund":  339196
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  2032,
+                                                    "prize_fund":  203200
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  13011,
+                                                    "prize_fund":  130110
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  29252,
+                                                    "prize_fund":  146260
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  114,
+                                                    "prize_fund":  5700
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  17146,
+                                                    "prize_fund":  51438
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  760422,
+                                                    "prize_fund":  4541469.22
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-22T20:03:00+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-21",
+                        "draw_type":  null,
+                        "balls":  [
+                                      12,
+                                      25,
+                                      27,
+                                      28,
+                                      39,
+                                      57
+                                  ],
+                        "ball_bonus":  [
+                                           42,
+                                           13
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  44225,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  1769,
+                                                    "prize_fund":  44225
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  22,
+                                                    "prize_fund":  2200
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  215,
+                                                    "prize_fund":  4300
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  217677,
+                                                    "prize_fund":  435354
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  212384838.04,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  74132.51,
+                                                    "winners":  2,
+                                                    "prize_fund":  148265.02
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  289.9,
+                                                    "winners":  525,
+                                                    "prize_fund":  152197.5
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  22.78,
+                                                    "winners":  20002,
+                                                    "prize_fund":  455645.56
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  299144,
+                                                    "prize_fund":  1495720
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  1853312.75,
+                                                    "winners":  1,
+                                                    "prize_fund":  1853312.75
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  28990,
+                                                    "winners":  4,
+                                                    "prize_fund":  115960
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2278,
+                                                    "winners":  149,
+                                                    "prize_fund":  339422
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  2253,
+                                                    "prize_fund":  225300
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  14104,
+                                                    "prize_fund":  141040
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  29424,
+                                                    "prize_fund":  147120
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  86,
+                                                    "prize_fund":  4300
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  12972,
+                                                    "prize_fund":  38916
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  598351,
+                                                    "prize_fund":  5604277.83
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-21T20:02:55+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-20",
+                        "draw_type":  null,
+                        "balls":  [
+                                      14,
+                                      18,
+                                      26,
+                                      51,
+                                      64,
+                                      71
+                                  ],
+                        "ball_bonus":  [
+                                           77,
+                                           49
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  57300,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2292,
+                                                    "prize_fund":  57300
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  25,
+                                                    "prize_fund":  2500
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  249,
+                                                    "prize_fund":  4980
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  263901,
+                                                    "prize_fund":  527802
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  211654658.9,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  20809.46,
+                                                    "winners":  9,
+                                                    "prize_fund":  187285.14
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  390.24,
+                                                    "winners":  490,
+                                                    "prize_fund":  191217.6
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  28.14,
+                                                    "winners":  20419,
+                                                    "prize_fund":  574590.66
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5.42,
+                                                    "winners":  328489,
+                                                    "prize_fund":  1780410.38
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  39024,
+                                                    "winners":  5,
+                                                    "prize_fund":  195120
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2814,
+                                                    "winners":  107,
+                                                    "prize_fund":  301098
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  1776,
+                                                    "prize_fund":  177600
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  12434,
+                                                    "prize_fund":  124340
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  28477,
+                                                    "prize_fund":  142385
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  108,
+                                                    "prize_fund":  5400
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  16224,
+                                                    "prize_fund":  48672
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  675007,
+                                                    "prize_fund":  4321700.78
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-20T20:02:55+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-18",
+                        "draw_type":  null,
+                        "balls":  [
+                                      10,
+                                      16,
+                                      24,
+                                      25,
+                                      39,
+                                      66
+                                  ],
+                        "ball_bonus":  [
+                                           70,
+                                           6
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  49675,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  1987,
+                                                    "prize_fund":  49675
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  3,
+                                                    "prize_fund":  1500
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  27,
+                                                    "prize_fund":  2700
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  232,
+                                                    "prize_fund":  4640
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  233709,
+                                                    "prize_fund":  467418
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  210777473.13,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  40905.7,
+                                                    "winners":  4,
+                                                    "prize_fund":  163622.8
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  270.68,
+                                                    "winners":  619,
+                                                    "prize_fund":  167550.92
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  20.56,
+                                                    "winners":  24441,
+                                                    "prize_fund":  502506.96
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  343165,
+                                                    "prize_fund":  1715825
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  27068,
+                                                    "winners":  7,
+                                                    "prize_fund":  189476
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2056,
+                                                    "winners":  121,
+                                                    "prize_fund":  248776
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  1991,
+                                                    "prize_fund":  199100
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  11813,
+                                                    "prize_fund":  118130
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  22688,
+                                                    "prize_fund":  113440
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  94,
+                                                    "prize_fund":  4700
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  14201,
+                                                    "prize_fund":  42603
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  655102,
+                                                    "prize_fund":  3991663.68
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-18T20:03:10+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-17",
+                        "draw_type":  null,
+                        "balls":  [
+                                      18,
+                                      24,
+                                      69,
+                                      71,
+                                      73,
+                                      82
+                                  ],
+                        "ball_bonus":  [
+                                           29,
+                                           41
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  54250,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2170,
+                                                    "prize_fund":  54250
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  1,
+                                                    "prize_fund":  500
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  22,
+                                                    "prize_fund":  2200
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  253,
+                                                    "prize_fund":  5060
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  256324,
+                                                    "prize_fund":  512648
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  209991371.58,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  34968.49,
+                                                    "winners":  5,
+                                                    "prize_fund":  174842.45
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  357.55,
+                                                    "winners":  500,
+                                                    "prize_fund":  178775
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  27.51,
+                                                    "winners":  19512,
+                                                    "prize_fund":  536775.12
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5.45,
+                                                    "winners":  305416,
+                                                    "prize_fund":  1664517.2
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  35755,
+                                                    "winners":  3,
+                                                    "prize_fund":  107265
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  2751,
+                                                    "winners":  235,
+                                                    "prize_fund":  646485
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  3040,
+                                                    "prize_fund":  304000
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  18946,
+                                                    "prize_fund":  189460
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  43594,
+                                                    "prize_fund":  217970
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  101,
+                                                    "prize_fund":  5050
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  15170,
+                                                    "prize_fund":  45510
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  665292,
+                                                    "prize_fund":  4645307.77
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-17T18:28:44+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-14",
+                        "draw_type":  null,
+                        "balls":  [
+                                      9,
+                                      18,
+                                      20,
+                                      25,
+                                      53,
+                                      90
+                                  ],
+                        "ball_bonus":  [
+                                           49,
+                                           23
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  null,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2026,
+                                                    "prize_fund":  50650
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  25,
+                                                    "prize_fund":  2500
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  231,
+                                                    "prize_fund":  4620
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  236279,
+                                                    "prize_fund":  472558
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  209162406.43,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  15363.47,
+                                                    "winners":  11,
+                                                    "prize_fund":  168998.17
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  130.31,
+                                                    "winners":  1327,
+                                                    "prize_fund":  172921.37
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  13.53,
+                                                    "winners":  38339,
+                                                    "prize_fund":  518726.67
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  442440,
+                                                    "prize_fund":  2212200
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  13031,
+                                                    "winners":  16,
+                                                    "prize_fund":  208496
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  1353,
+                                                    "winners":  309,
+                                                    "prize_fund":  418077
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  3657,
+                                                    "prize_fund":  365700
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  18847,
+                                                    "prize_fund":  188470
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  34937,
+                                                    "prize_fund":  174685
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  98,
+                                                    "prize_fund":  4900
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  14715,
+                                                    "prize_fund":  44145
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  793259,
+                                                    "prize_fund":  5008647.21
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-14T20:02:52+00:00"
+                    },
+                    {
+                        "draw_date":  "2026-08-13",
+                        "draw_type":  null,
+                        "balls":  [
+                                      2,
+                                      7,
+                                      16,
+                                      29,
+                                      57,
+                                      84
+                                  ],
+                        "ball_bonus":  [
+                                           18,
+                                           1
+                                       ],
+                        "card_suits":  null,
+                        "machine":  null,
+                        "ball_set":  null,
+                        "jackpot":  209100000,
+                        "next_jackpot":  null,
+                        "prize_breakdown":  [
+                                                {
+                                                    "tier":  "WinBox 1 - €25",
+                                                    "prize_per_winner":  25,
+                                                    "winners":  2339,
+                                                    "prize_fund":  58475
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €500",
+                                                    "prize_per_winner":  500,
+                                                    "winners":  2,
+                                                    "prize_fund":  1000
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €100",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  29,
+                                                    "prize_fund":  2900
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €20",
+                                                    "prize_per_winner":  20,
+                                                    "winners":  278,
+                                                    "prize_fund":  5560
+                                                },
+                                                {
+                                                    "tier":  "WinBox 2 - €2",
+                                                    "prize_per_winner":  2,
+                                                    "winners":  266989,
+                                                    "prize_fund":  533978
+                                                },
+                                                {
+                                                    "tier":  "Match 6",
+                                                    "prize_per_winner":  208462271.22,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Jolly",
+                                                    "prize_per_winner":  298087.96,
+                                                    "winners":  2,
+                                                    "prize_fund":  596175.92
+                                                },
+                                                {
+                                                    "tier":  "Match 5",
+                                                    "prize_per_winner":  19261.07,
+                                                    "winners":  10,
+                                                    "prize_fund":  192610.7
+                                                },
+                                                {
+                                                    "tier":  "Match 4",
+                                                    "prize_per_winner":  234.82,
+                                                    "winners":  837,
+                                                    "prize_fund":  196544.34
+                                                },
+                                                {
+                                                    "tier":  "Match 3",
+                                                    "prize_per_winner":  18.61,
+                                                    "winners":  31751,
+                                                    "prize_fund":  590886.11
+                                                },
+                                                {
+                                                    "tier":  "Match 2",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  432757,
+                                                    "prize_fund":  2163785
+                                                },
+                                                {
+                                                    "tier":  "Match 5 + Superstar",
+                                                    "prize_per_winner":  0,
+                                                    "winners":  0,
+                                                    "prize_fund":  0
+                                                },
+                                                {
+                                                    "tier":  "Match 4 + Superstar",
+                                                    "prize_per_winner":  23482,
+                                                    "winners":  1,
+                                                    "prize_fund":  23482
+                                                },
+                                                {
+                                                    "tier":  "Match 3 + Superstar",
+                                                    "prize_per_winner":  1861,
+                                                    "winners":  161,
+                                                    "prize_fund":  299621
+                                                },
+                                                {
+                                                    "tier":  "Match 2 + Superstar",
+                                                    "prize_per_winner":  100,
+                                                    "winners":  2299,
+                                                    "prize_fund":  229900
+                                                },
+                                                {
+                                                    "tier":  "Match 1 + Superstar",
+                                                    "prize_per_winner":  10,
+                                                    "winners":  13099,
+                                                    "prize_fund":  130990
+                                                },
+                                                {
+                                                    "tier":  "Match 0 + Superstar",
+                                                    "prize_per_winner":  5,
+                                                    "winners":  26304,
+                                                    "prize_fund":  131520
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 1",
+                                                    "prize_per_winner":  50,
+                                                    "winners":  111,
+                                                    "prize_fund":  5550
+                                                },
+                                                {
+                                                    "tier":  "Seconda Chance 2",
+                                                    "prize_per_winner":  3,
+                                                    "winners":  16769,
+                                                    "prize_fund":  50307
+                                                },
+                                                {
+                                                    "tier":  "Totals",
+                                                    "prize_per_winner":  null,
+                                                    "winners":  793738,
+                                                    "prize_fund":  5213285.07
+                                                }
+                                            ],
+                        "extra_draws":  null,
+                        "result_published_at":  "2026-08-13T20:09:38+00:00"
+                    }
+                ],
+    "warning":  "Free tier access is limited to the last 1 month of results. Upgrade for full historical data: https://www.lotteryresultsfeed.com/pricing"
+}
