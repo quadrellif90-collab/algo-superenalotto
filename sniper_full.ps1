@@ -403,7 +403,14 @@ if ($dayOfWeekName -in $drawDays) {
         try {
             $headers = @{ "X-API-KEY" = $apiKey }
             $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
-            $jackpot = $response.results[0].jackpot
+            if ($response.results -ne $null -and $response.results.Count -gt 0) {
+                $jackpot = $response.results[0].jackpot
+                $apiDrawDate = $response.results[0].draw_date
+                if ($apiDrawDate -ne $null) {
+                    $today = $apiDrawDate.Substring(0, 10)
+                    $dayOfWeekName = (Get-Date $today).DayOfWeek.ToString()
+                }
+            }
         } catch {}
         $numSchedine = 2
         if ($jackpot -ge 100000000) {

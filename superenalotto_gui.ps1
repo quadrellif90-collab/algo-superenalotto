@@ -117,24 +117,29 @@ function Update-CSV {
     $script:statusLabel.Text = "Tentativo con API..."
     $script:form.Refresh()
     
+    # Usa la stessa API di sniper_full.ps1 (lotteryresultsfeed.com)
+    $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
     try {
-        $headers = @{ "Authorization" = "Bearer $($script:apiKey)" }
-        $url = "$($script:apiUrl)/api/lottery/results?id=$($script:lotteryId)"
-        $response = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
         
         $newCount = 0
+        $existingDates = @()
+        if (Test-Path $csvPath) {
+            $existingLines = Get-Content $csvPath -Encoding UTF8
+            foreach ($l in $existingLines) {
+                $p = $l -split ','
+                if ($p.Count -ge 2) { $existingDates += $p[0] }
+            }
+        }
         foreach ($r in $response.results) {
             $date = $r.draw_date
-            if ($script:records -and $date -le $script:lastDrawDate) { continue }
-            
+            if ($date -in $existingDates) { continue }
             $balls = $r.balls
             $jolly = if ($r.ball_bonus) { $r.ball_bonus[0] } else { 0 }
-            $star = if ($r.ball_bonus.Count -gt 1) { $r.ball_bonus[1] } else { 0 }
-            $nums = @([int]$balls[0], [int]$balls[1], [int]$balls[2], 
-                       [int]$balls[3], [int]$balls[4], [int]$balls[5])
-            
-            $line = "$date,,$($nums[0]),$($nums[1]),$($nums[2]),$($nums[3]),$($nums[4]),$($nums[5]),$jolly,$star"
-            Add-Content -Path $csvPath -Value $line
+            $star = if ($r.ball_bonus -and $r.ball_bonus.Count -gt 1) { $r.ball_bonus[1] } else { 0 }
+            $line = "$date,,$([int]$balls[0]),$([int]$balls[1]),$([int]$balls[2]),$([int]$balls[3]),$([int]$balls[4]),$([int]$balls[5]),$jolly,$star"
+            Add-Content -Path $csvPath -Value $line -Encoding UTF8
             $newCount++
         }
         
@@ -145,32 +150,37 @@ function Update-CSV {
             $script:statusLabel.Text = "Dati gia aggiornati."
         }
     } catch {
-        $script:statusLabel.Text = "API non disponibile"
+        $script:statusLabel.Text = "API non disponibile`nUsa dati locali"
         
-        $result = [System.Windows.Forms.MessageBox]::Show(
-            "L'API non e' raggiungibile.`n`n" +
-            "Scarica manualmente le estrazioni da:`n" +
-            "www.lotterypost.com/results/italy/superenalotto`n`n" +
-            "Vuoi aprire il sito nel browser?",
-            "Aggiornamento CSV",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-        
-        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            Start-Process "https://www.lotterypost.com/results/italy/superenalotto"
+        # Fallback: usa l'ultima estrazione dal CSV per non perdere le stats
+        if (Test-Path $csvPath) {
+            $lines = Get-Content $csvPath | Select-Object -Skip 1
+            $latestDate = "1997-12-03"
+            foreach ($l in $lines) {
+                $p = $l -split ','
+                if ($p.Count -ge 2 -and $p[0] -gt $latestDate) { $latestDate = $p[0] }
+            }
+            $script:lastDrawDate = $latestDate
         }
     }
 }
 
 function Get-Jackpot {
+    # Usa la stessa API di sniper_full.ps1
+    $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
     try {
-        $headers = @{ "Authorization" = "Bearer $($script:apiKey)" }
-        $url = "$($script:apiUrl)/api/lottery/results?id=$($script:lotteryId)"
-        $response = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 10 -ErrorAction Stop
-        $jp = $response.results[0].jackpot
-        $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { $jp }
-        if ($script:jackpotLabel) { $script:jackpotLabel.Text = "Jackpot: EUR " + $script:jackpot + "M" }
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        if ($response.results -ne $null -and $response.results.Count -gt 0) {
+            $jp = $response.results[0].jackpot
+            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { $jp }
+            if ($script:jackpotLabel) {
+                $script:jackpotLabel.Text = "Jackpot: EUR " + $script:jackpot + "M"
+            }
+        } else {
+            $script:jackpot = 0
+            if ($script:jackpotLabel) { $script:jackpotLabel.Text = "Jackpot: N/D" }
+        }
     } catch {
         $script:jackpot = 0
         if ($script:jackpotLabel) { $script:jackpotLabel.Text = "Jackpot: N/D" }
@@ -204,12 +214,14 @@ function Generate-Numbers {
         return
     }
     if ($script:records.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati! Clicca 'AGGIORNA CSV' o usa i dati locali.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
     
-    $targetLow = [int]($script:stats.Mean - 30)
-    $targetHigh = [int]($script:stats.Mean + 30)
+    # Usa la media storica del manuale (276.64) come fallback se le stats non sono calcolate
+    $meanValue = if ($script:stats.Mean -ne $null) { $script:stats.Mean } else { 276.64 }
+    $targetLow = [int]($meanValue - 30)
+    $targetHigh = [int]($meanValue + 30)
     
     $script:generatedNumbers = @()
     
@@ -242,6 +254,11 @@ function Generate-Numbers {
                 Sum = $sum
             }
         }
+    }
+    
+    if ($script:generatedNumbers.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Impossibile generare numeri validi. Riprova.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
     }
     
     Display-Generated
@@ -300,12 +317,12 @@ function Save-Tracking {
     $dayName = (Get-Date).DayOfWeek.ToString()
     
     if (-not (Test-Path $trackingPath)) {
-        "data,giornata,budget,schedine,numeri,somma,jackpot" | Out-File -Path $trackingPath -Encoding UTF8
+        "data,giornata,budget,schedine,numeri,somma,jackpot,verificato" | Out-File -Path $trackingPath -Encoding UTF8
     }
     
     foreach ($sched in $script:generatedNumbers) {
         $numsStr = $sched.Nums -join "-"
-        $line = "$today,$dayName,1.00,1,$numsStr,$($sched.Sum),$script:jackpot"
+        $line = "$today,$dayName,1.00,1,$numsStr,$($sched.Sum),$script:jackpot,no"
         Add-Content -Path $trackingPath -Value $line
     }
     
@@ -313,7 +330,8 @@ function Save-Tracking {
     $todayStr = $today
     $played = 0
     if (Test-Path $dailyLimitPath) {
-        $existing = Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -eq $todayStr }
+        $limits = Import-Csv -Path $dailyLimitPath
+        $existing = $limits | Where-Object { $_.data -eq $todayStr }
         if ($existing.Count -gt 0) {
             $played = [int]$existing[0].schedine_giocate
         }
@@ -324,13 +342,15 @@ function Save-Tracking {
             data = $todayStr
             schedine_giocate = $played
         }
-        $existing | ForEach-Object { $_.schedine_giocate += 1 } | Export-Csv -Path $dailyLimitPath -NoTypeInformation
-        if (-not $existing) {
-            $entry | Export-Csv -Path $dailyLimitPath -NoTypeInformation
+        $existingAll = @()
+        if (Test-Path $dailyLimitPath) {
+            $existingAll = @(Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -ne $todayStr })
         }
+        $existingAll += $entry
+        $existingAll | Export-Csv -Path $dailyLimitPath -NoTypeInformation -Encoding UTF8
     }
     
-    $statusLabel.Text = "Tracking salvato! ($($script:generatedNumbers.Count) schedine)"
+    $script:statusLabel.Text = "Tracking salvato! ($($script:generatedNumbers.Count) schedine)"
 }
 
 function Check-Win {
