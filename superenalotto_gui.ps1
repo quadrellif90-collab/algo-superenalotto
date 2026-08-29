@@ -1,113 +1,23 @@
+﻿# superenalotto_gui.ps1 - SuperEnalotto GUI Completa v4
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
-$apiUrl = "https://www.lotteryresultsfeed.com"
-$lotteryId = 712
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = "C:\Users\Siviglino\Desktop\Superenalotto"
 $csvPath = Join-Path $scriptDir "superenalotto.csv"
 $trackingPath = Join-Path $scriptDir "tracking.csv"
-$configPath = Join-Path $scriptDir "config.json"
 $dailyLimitPath = Join-Path $scriptDir "daily_limit.csv"
-$drawDays = @("Tuesday", "Thursday", "Friday", "Saturday")
-$script:DailyMaxSchedines = 2
+$analisiJsonPath = Join-Path $scriptDir "analisi_completa.json"
+
+$apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+$apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=712"
 
 $script:records = @()
-$script:stats = @{}
+$script:stats = $null
+$script:generatedNumbers = @()
+$script:jackpot = 0
 $script:lastDrawDate = ""
 
-# Load configuration
-function Load-Config {
-    if (Test-Path $configPath) {
-        try {
-            $config = Get-Content $configPath -Raw | ConvertFrom-Json
-            if ($config.apiKey) { $script:apiKey = $config.apiKey }
-            if ($config.apiUrl) { $script:apiUrl = $config.apiUrl }
-            if ($config.lotteryId) { $script:lotteryId = $config.lotteryId }
-        } catch {
-            # If config is corrupted, use defaults
-        }
-    }
-}
-
-# Save configuration
-function Save-Config {
-    $config = @{
-        apiKey = $script:apiKey
-        apiUrl = $script:apiUrl
-        lotteryId = $script:lotteryId
-    }
-    $config | ConvertTo-Json -Depth 3 | Set-Content $configPath
-}
-
-# Load config at startup
-Load-Config
-
-function Load-Data {
-    if (Test-Path $csvPath) {
-        $script:records = @()
-        $lines = Get-Content $csvPath | Select-Object -Skip 1
-        foreach ($line in $lines) {
-            $parts = $line -split ','
-            if ($parts.Count -ge 9) {
-                try {
-                    $nums = @([int]$parts[2], [int]$parts[3], [int]$parts[4], 
-                              [int]$parts[5], [int]$parts[6], [int]$parts[7])
-                    if ($nums.All({$_ -ge 1 -and $_ -le 90})) {
-                        $script:records += [PSCustomObject]@{
-                            Date = $parts[0]
-                            Conc = $parts[1]
-                            N1 = $nums[0]
-                            N2 = $nums[1]
-                            N3 = $nums[2]
-                            N4 = $nums[3]
-                            N5 = $nums[4]
-                            N6 = $nums[5]
-                            Nums = $nums
-                            Sum = ($nums | Measure-Object -Sum).Sum
-                            Jolly = [int]$parts[8]
-                            Star = if ($parts.Count -gt 9) { [int]$parts[9] } else { 0 }
-                        }
-                    }
-                } catch {}
-            }
-        }
-        Calculate-Stats
-        $script:lastDrawDate = $script:records[-1].Date
-        Update-StatsUI
-        Update-ResultsUI
-    }
-}
-
-function Calculate-Stats {
-    if ($script:records.Count -eq 0) { return }
-    
-    $sums = $script:records | ForEach-Object { $_.Sum }
-    $allNums = $script:records | ForEach-Object { $_.Nums } | ForEach-Object { $_ }
-    $sumsSorted = $sums | Sort-Object
-    $n = $sumsSorted.Count
-    $mean = ($sums | Measure-Object -Average).Average
-    $median = $sumsSorted[[int]($n / 2)]
-    
-    $sumSq = 0
-    foreach ($s in $sums) { $sumSq += [math]::Pow($s - $mean, 2) }
-    $std = [math]::Sqrt($sumSq / $n)
-    
-    $script:stats = @{
-        Count = $n
-        Mean = [math]::Round($mean, 2)
-        Median = $median
-        Std = [math]::Round($std, 2)
-        Q1 = $sumsSorted[[int]($n * 0.25)]
-        Q3 = $sumsSorted[[int]($n * 0.75)]
-        Min = ($sums | Measure-Object -Minimum).Minimum
-        Max = ($sums | Measure-Object -Maximum).Maximum
-        Primes = [math]::Round(($allNums | Where-Object { Test-Prime $_ }).Count / $allNums.Count * 100, 2)
-        Extremes = [math]::Round(($allNums | Where-Object { $_ -ge 76 }).Count / $allNums.Count * 100, 2)
-    }
-}
-
-function Test-Prime($n) {
+function Is-Prime($n) {
     if ($n -lt 2) { return $false }
     if ($n -eq 2) { return $true }
     if ($n % 2 -eq 0) { return $false }
@@ -117,124 +27,179 @@ function Test-Prime($n) {
     return $true
 }
 
-function Update-CSV {
-    $script:statusLabel.Text = "Tentativo API principale..."
-    $script:form.Refresh()
-    
-    $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
-    try {
-        $headers = @{ "X-API-KEY" = $apiKey }
-        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
-        
-        $newCount = 0
-        $existingDates = @()
-        if (Test-Path $csvPath) {
-            $existingLines = Get-Content $csvPath -Encoding UTF8
-            foreach ($l in $existingLines) {
-                $p = $l -split ','
-                if ($p.Count -ge 2) { $existingDates += $p[0] }
-            }
-        }
-        foreach ($r in $response.results) {
-            $date = $r.draw_date
-            if ($date -in $existingDates) { continue }
-            $balls = $r.balls
-            $jolly = if ($r.ball_bonus) { $r.ball_bonus[0] } else { 0 }
-            $star = if ($r.ball_bonus -and $r.ball_bonus.Count -gt 1) { $r.ball_bonus[1] } else { 0 }
-            $line = "$date,,$([int]$balls[0]),$([int]$balls[1]),$([int]$balls[2]),$([int]$balls[3]),$([int]$balls[4]),$([int]$balls[5]),$jolly,$star"
-            Add-Content -Path $csvPath -Value $line -Encoding UTF8
-            $newCount++
-        }
-        
-        if ($newCount -gt 0) {
-            $script:statusLabel.Text = "OK! Aggiunti $newCount estrazioni da API!"
-            Load-Data
-        } else {
-            $script:statusLabel.Text = "API OK. Dati gia aggiornati."
-            Load-Data
-        }
-    } catch {
-        $script:statusLabel.Text = "API non disponibile. Fallback CSV locale...`n"
-        $script:form.Refresh()
-        
-        if (Test-Path $csvPath) {
-            $lines = Get-Content $csvPath | Select-Object -Skip 1
-            if ($lines) {
-                $last = $lines | Select-Object -Last 1
-                $parts = $last -split ','
-                if ($parts.Count -ge 2) {
-                    $script:lastDrawDate = $parts[0]
-                    $script:statusLabel.Text += "Ultima estrazione: $($parts[0])"
-                }
-            }
-        }
-        Load-Data
-    }
+function Get-Decade($n) {
+    return [math]::Floor(($n - 1) / 10)
 }
 
-function Get-Jackpot {
-    $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
-    try {
-        $headers = @{ "X-API-KEY" = $apiKey }
-        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
-        if ($response.results -ne $null -and $response.results.Count -gt 0) {
-            $jp = $response.results[0].jackpot | [double]
-            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { 0 }
-            if ($script:jackpotLabel) {
-                $jackDisplay = if ($script:jackpot -gt 0) { "EUR " + $script:jackpot + "M" } else { "N/D" }
-                $script:jackpotLabel.Text = "Jackpot: $jackDisplay"
-            }
-        } else {
-            $script:jackpot = 0
-            if ($script:jackpotLabel) { $script:jackpotLabel.Text = "Jackpot: N/D" }
+function Parse-CSV {
+    if (-not (Test-Path $csvPath)) { return @() }
+    $lines = Get-Content $csvPath -Encoding UTF8
+    $records = @()
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -lt 9) { continue }
+        $nums = @()
+        $valid = $true
+        for ($j = 2; $j -le 7; $j++) {
+            $valStr = $parts[$j].Trim()
+            if ([string]::IsNullOrWhiteSpace($valStr)) { $valid = $false; break }
+            $val = 0
+            if ([int]::TryParse($valStr, [ref]$val)) {
+                if ($val -lt 1 -or $val -gt 90) { $valid = $false; break }
+                $nums += $val
+            } else { $valid = $false; break }
         }
-    } catch {
-        $script:jackpot = 0
-        if ($script:jackpotLabel) { $script:jackpotLabel.Text = "Jackpot: N/D" }
+        if (-not $valid -or $nums.Count -ne 6) { continue }
+        $jolly = 0; $star = 0
+        $jollyStr = $parts[8].Trim()
+        if (-not [string]::IsNullOrWhiteSpace($jollyStr)) { [void][int]::TryParse($jollyStr, [ref]$jolly) }
+        if ($parts.Count -gt 9) {
+            $starStr = $parts[9].Trim()
+            if (-not [string]::IsNullOrWhiteSpace($starStr)) { [void][int]::TryParse($starStr, [ref]$star) }
+        }
+        $records += [PSCustomObject]@{
+            Date = $parts[0].Trim()
+            Nums = ($nums | Sort-Object)
+            Sum = ($nums | Measure-Object -Sum).Sum
+            Jolly = $jolly
+            Star = $star
+        }
     }
+    return $records
+}
+
+function Calculate-Stats {
+    if ($script:records.Count -eq 0) {
+        $script:stats = @{ Count = 0; Mean = 276.64; Median = 0; StdDev = 0; Q1 = 0; Q3 = 0; SumMin = 0; SumMax = 0; PrimesPct = 0; ExtremesPct = 0; Gt31Pct = 0; Gt80Pct = 0; EvenPct = 0; OddPct = 0; Top20Numbers = @(); FirstDate = ""; LastDate = "" }
+        return
+    }
+    $sums = $script:records | ForEach-Object { $_.Sum }
+    $allNums = $script:records | ForEach-Object { $_.Nums } | ForEach-Object { $_ }
+    $sumsSorted = $sums | Sort-Object
+    $n = $sumsSorted.Count
+    $mean = ($sums | Measure-Object -Average).Average
+    $median = $sumsSorted[[int]($n / 2)]
+    $sumSq = 0
+    foreach ($s in $sums) { $sumSq += [math]::Pow($s - $mean, 2) }
+    $stdDev = [math]::Sqrt($sumSq / $n)
+    $q1 = $sumsSorted[[int]($n * 0.25)]
+    $q3 = $sumsSorted[[int]($n * 0.75)]
+    $primesCount = 0; $extremesCount = 0; $gt31Count = 0; $gt80Count = 0; $evenCount = 0
+    foreach ($num in $allNums) {
+        if (Is-Prime $num) { $primesCount++ }
+        if ($num -ge 76) { $extremesCount++ }
+        if ($num -gt 31) { $gt31Count++ }
+        if ($num -gt 80) { $gt80Count++ }
+        if ($num % 2 -eq 0) { $evenCount++ }
+    }
+    $oddCount = $allNums.Count - $evenCount
+    $freqMap = @{}
+    for ($i = 1; $i -le 90; $i++) { $freqMap[$i] = 0 }
+    foreach ($num in $allNums) { $freqMap[$num]++ }
+    $top20 = ($freqMap.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 20 | ForEach-Object { @{Number = $_.Key; Frequency = $_.Value} })
+    $script:stats = @{
+        Count = $n; Mean = [math]::Round($mean, 2); Median = $median; StdDev = [math]::Round($stdDev, 2)
+        Q1 = $q1; Q3 = $q3; SumMin = ($sums | Measure-Object -Minimum).Minimum; SumMax = ($sums | Measure-Object -Maximum).Maximum
+        PrimesPct = [math]::Round($primesCount / $allNums.Count * 100, 2)
+        ExtremesPct = [math]::Round($extremesCount / $allNums.Count * 100, 2)
+        Gt31Pct = [math]::Round($gt31Count / $allNums.Count * 100, 2)
+        Gt80Pct = [math]::Round($gt80Count / $allNums.Count * 100, 2)
+        EvenPct = [math]::Round($evenCount / $allNums.Count * 100, 2)
+        OddPct = [math]::Round($oddCount / $allNums.Count * 100, 2)
+        Top20Numbers = $top20; FirstDate = $script:records[0].Date; LastDate = $script:records[-1].Date
+    }
+    $jsonObj = [PSCustomObject]@{
+        recordCount = $n; firstDate = $script:records[0].Date; lastDate = $script:records[-1].Date
+        sumMean = [math]::Round($mean, 2); sumMedian = $median; sumStd = [math]::Round($stdDev, 2)
+        sumMin = ($sums | Measure-Object -Minimum).Minimum; sumMax = ($sums | Measure-Object -Maximum).Maximum
+        q1 = $q1; q3 = $q3
+        primesPct = [math]::Round($primesCount / $allNums.Count * 100, 2)
+        extremesPct = [math]::Round($extremesCount / $allNums.Count * 100, 2)
+        evenPct = [math]::Round($evenCount / $allNums.Count * 100, 2)
+        oddPct = [math]::Round($oddCount / $allNums.Count * 100, 2)
+        top20Numbers = $top20
+    }
+    $jsonObj | ConvertTo-Json -Depth 5 | Set-Content $analisiJsonPath -Encoding UTF8
+}
+
+function Load-Data {
+    $script:records = Parse-CSV
+    Calculate-Stats
+    if ($script:records.Count -gt 0) { $script:lastDrawDate = $script:records[-1].Date }
+    Update-StatsUI
+    Update-ResultsUI
+    Update-PlayStatus
 }
 
 function Can-PlayToday {
     $today = Get-Date -Format "yyyy-MM-dd"
-    if (-not (Test-Path $dailyLimitPath)) {
-        return $true
+    if (-not (Test-Path $dailyLimitPath)) { return $true }
+    $lines = Get-Content $dailyLimitPath -Encoding UTF8
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -ge 2 -and $parts[0] -eq $today) {
+            $played = 0
+            if ([int]::TryParse($parts[1], [ref]$played)) { return $played -lt 2 }
+        }
     }
-    try {
-        $limits = Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -eq $today }
-        if ($limits.Count -eq 0) { return $true }
-        $played = [int]$limits[0].schedine_giocate
-        return $played -lt $script:DailyMaxSchedines
-    } catch {
-        return $true
+    return $true
+}
+
+function Get-PlayCountToday {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    if (-not (Test-Path $dailyLimitPath)) { return 0 }
+    $lines = Get-Content $dailyLimitPath -Encoding UTF8
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -ge 2 -and $parts[0] -eq $today) {
+            $played = 0
+            if ([int]::TryParse($parts[1], [ref]$played)) { return $played }
+        }
     }
+    return 0
+}
+
+function Increment-PlayCount {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    $lines = @()
+    if (Test-Path $dailyLimitPath) { $lines = @(Get-Content $dailyLimitPath -Encoding UTF8) }
+    $found = $false
+    $newLines = @()
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts[0] -eq $today) {
+            $count = 1
+            if ($parts.Count -ge 2) { [void][int]::TryParse($parts[1], [ref]$count); $count++ }
+            $newLines += "$today,$count"
+            $found = $true
+        } else { $newLines += $line }
+    }
+    if (-not $found) { $newLines += "$today,1" }
+    $newLines | Out-File -FilePath $dailyLimitPath -Encoding UTF8
 }
 
 function Generate-Numbers {
     if (-not (Can-PlayToday)) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Hai raggiunto il limite massimo di 2 schedine per oggi.`n`n" +
-            "Gioca domani o aspetta la prossima estrazione.",
-            "Limite Giornaliero",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
+        [System.Windows.Forms.MessageBox]::Show("Hai raggiunto il limite massimo di 2 schedine per oggi.", "Limite Giornaliero", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         return
     }
     if ($script:records.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati! Clicca 'AGGIORNA CSV' o usa i dati locali.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati! Clicca 'AGGIORNA CSV'.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
-    
-    # Usa la media storica del manuale (276.64) come fallback se le stats non sono calcolate
-    $meanValue = if ($script:stats.Mean -ne $null) { $script:stats.Mean } else { 276.64 }
+    $meanValue = 276.64
+    if ($script:stats -ne $null -and $script:stats.Mean -gt 0) { $meanValue = $script:stats.Mean }
     $targetLow = [int]($meanValue - 30)
     $targetHigh = [int]($meanValue + 30)
-    
     $script:generatedNumbers = @()
-    
     for ($s = 0; $s -lt 2; $s++) {
-        $attempts = 0
-        do {
+        $attempts = 0; $valid = $false; $bestNums = $null
+        while (-not $valid -and $attempts -lt 2000) {
             $nums = @()
             while ($nums.Count -lt 6) {
                 $n = Get-Random -Minimum 1 -Maximum 91
@@ -242,606 +207,1004 @@ function Generate-Numbers {
             }
             $nums = $nums | Sort-Object
             $sum = ($nums | Measure-Object -Sum).Sum
-            
-            $decades = @{}
+            $decadeCounts = @{}
+            for ($d = 0; $d -lt 9; $d++) { $decadeCounts[$d] = 0 }
             foreach ($n in $nums) {
-                $d = [math]::Floor($n / 10)
-                $decades[$d] = ++$decades[$d]
+                $d = Get-Decade $n
+                if ($d -lt 9) { $decadeCounts[$d]++ }
             }
-            $maxDecade = ($decades.Values | Measure-Object -Maximum).Maximum
-            $veryHigh = ($nums | Where-Object { $_ -gt 80 }).Count
-            
-            $valid = ($sum -ge $targetLow -and $sum -le $targetHigh) -and ($maxDecade -le 2) -and ($veryHigh -le 1)
+            $maxDecade = ($decadeCounts.Values | Measure-Object -Maximum).Maximum
+            $gt80 = ($nums | Where-Object { $_ -gt 80 }).Count
+            $le31 = ($nums | Where-Object { $_ -le 31 }).Count
+            $valid = ($sum -ge $targetLow -and $sum -le $targetHigh) -and ($maxDecade -le 2) -and ($gt80 -le 1) -and ($le31 -ge 1)
+            if ($valid) { $bestNums = $nums }
             $attempts++
-        } while (-not $valid -and $attempts -lt 1000)
-        
-        if ($valid) {
+        }
+        if ($valid -and $bestNums -ne $null) {
+            $sum = ($bestNums | Measure-Object -Sum).Sum
+            $evenCount = ($bestNums | Where-Object { $_ % 2 -eq 0 }).Count
             $script:generatedNumbers += [PSCustomObject]@{
-                Nums = $nums
-                Sum = $sum
+                Nums = $bestNums; Sum = $sum; EvenCount = $evenCount; OddCount = 6 - $evenCount; DecadeDist = $decadeCounts
             }
         }
     }
-    
     if ($script:generatedNumbers.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show("Impossibile generare numeri validi. Riprova.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
-    
     Display-Generated
     Save-Tracking
+    Increment-PlayCount
+    Update-PlayStatus
+    $script:statusLabel.Text = "Generati $($script:generatedNumbers.Count) schedine! (Totale oggi: $(Get-PlayCountToday))"
+    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
 }
 
 function Display-Generated {
-    $numbersPanel.Controls.Clear()
-    
-    foreach ($i in 0..($script:generatedNumbers.Count - 1)) {
+    if ($script:generatedNumbers.Count -eq 0) { return }
+    $text = ""
+    for ($i = 0; $i -lt $script:generatedNumbers.Count; $i++) {
         $sched = $script:generatedNumbers[$i]
-        $panel = New-Object System.Windows.Forms.Panel
-        $panel.Location = New-Object System.Drawing.Point(10, ($i * 90))
-        $panel.Size = New-Object System.Drawing.Size(350, 80)
-        $panel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 50)
-        $panel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-        
-        $header = New-Object System.Windows.Forms.Label
-        $header.Text = "SCHEDINA $($i + 1)"
-        $header.Location = New-Object System.Drawing.Point(10, 10)
-        $header.Size = New-Object System.Drawing.Size(100, 20)
-        $header.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
-        $header.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-        $panel.Controls.Add($header)
-        
-        $sumLabel = New-Object System.Windows.Forms.Label
-        $sumLabel.Text = "Somma: $($sched.Sum)"
-        $sumLabel.Location = New-Object System.Drawing.Point(250, 10)
-        $sumLabel.Size = New-Object System.Drawing.Size(90, 20)
-        $sumLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
-        $panel.Controls.Add($sumLabel)
-        
-        $x = 10
-        foreach ($n in $sched.Nums) {
-            $ball = New-Object System.Windows.Forms.Label
-            $ball.Text = $n
-            $ball.Location = New-Object System.Drawing.Point($x, 35)
-            $ball.Size = New-Object System.Drawing.Size(50, 40)
-            $ball.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-            $ball.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 200)
-            $ball.ForeColor = [System.Drawing.Color]::White
-            $ball.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-            $ball.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-            $panel.Controls.Add($ball)
-            $x += 55
-        }
-        
-        $numbersPanel.Controls.Add($panel)
+        $numsStr = ($sched.Nums -join " - ")
+        $text += "SCHEDINA $($i + 1): $numsStr" + [Environment]::NewLine
+        $text += "  Somma: $($sched.Sum) | Pari: $($sched.EvenCount) | Dispari: $($sched.OddCount)" + [Environment]::NewLine
+        $text += [Environment]::NewLine
     }
+    $script:txtNumeri.Text = $text
 }
 
 function Save-Tracking {
-    if (-not $script:generatedNumbers) { return }
-    
+    if ($script:generatedNumbers.Count -eq 0) { return }
     $today = Get-Date -Format "yyyy-MM-dd"
     $dayName = (Get-Date).DayOfWeek.ToString()
-    
-    if (-not (Test-Path $trackingPath)) {
-        "data,giornata,budget,schedine,numeri,somma,jackpot,verificato" | Out-File -Path $trackingPath -Encoding UTF8
-    }
-    
+    $header = "data,giornata,budget,schedine,numeri,somma,jackpot,verificato"
+    if (-not (Test-Path $trackingPath)) { $header | Out-File -Path $trackingPath -Encoding UTF8 }
     foreach ($sched in $script:generatedNumbers) {
         $numsStr = $sched.Nums -join "-"
         $line = "$today,$dayName,1.00,1,$numsStr,$($sched.Sum),$script:jackpot,no"
-        Add-Content -Path $trackingPath -Value $line
+        Add-Content -Path $trackingPath -Value $line -Encoding UTF8
     }
-    
-    # Aggiorna il file di limitazione giornaliero
-    $todayStr = $today
-    $played = 0
-    if (Test-Path $dailyLimitPath) {
-        $limits = Import-Csv -Path $dailyLimitPath
-        $existing = $limits | Where-Object { $_.data -eq $todayStr }
-        if ($existing.Count -gt 0) {
-            $played = [int]$existing[0].schedine_giocate
-        }
-    }
-    if ($played -lt 2) {
-        $played++
-        $entry = [PSCustomObject]@{
-            data = $todayStr
-            schedine_giocate = $played
-        }
-        $existingAll = @()
-        if (Test-Path $dailyLimitPath) {
-            $existingAll = @(Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -ne $todayStr })
-        }
-        $existingAll += $entry
-        $existingAll | Export-Csv -Path $dailyLimitPath -NoTypeInformation -Encoding UTF8
-    }
-    
-    $script:statusLabel.Text = "Tracking salvato! ($($script:generatedNumbers.Count) schedine)"
 }
 
-function Check-Win {
-    if (-not $script:generatedNumbers) {
-        [System.Windows.Forms.MessageBox]::Show("Genera prima i numeri!", "Verifica", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+function Verify-Wins {
+    if (-not (Test-Path $trackingPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Nessuna giocata registrata in tracking.csv", "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         return
     }
-    
     if ($script:records.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Nessun dato disponibile!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati delle estrazioni!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
-    
     $lastDraw = $script:records[-1]
-    $msg = "Ultima estrazione ($($lastDraw.Date)):`n$($lastDraw.Nums -join ' - ')`n`n"
-    $msg += "I tuoi numeri:`n"
-    
-    foreach ($i in 0..($script:generatedNumbers.Count - 1)) {
-        $sched = $script:generatedNumbers[$i]
-        $matches = ($sched.Nums | Where-Object { $_ -in $lastDraw.Nums }).Count
-        $msg += "Schedina $($i+1): $matches numeri indovinati"
-        if ($matches -ge 3) { $msg += " [VINCITA!]" }
-        $msg += "`n"
+    $lines = Get-Content $trackingPath -Encoding UTF8
+    $results = @(); $updatedLines = @(); $updated = $false
+    $header = $lines[0]; $updatedLines += $header
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -lt 8) { $updatedLines += $line; continue }
+        $verificato = $parts[7].Trim()
+        if ($verificato -eq "si") { $updatedLines += $line; continue }
+        $numsStr = $parts[4]
+        $playedNums = @()
+        foreach ($n in ($numsStr -split '-')) {
+            $val = 0
+            if ([int]::TryParse($n.Trim(), [ref]$val)) { $playedNums += $val }
+        }
+        $matches = 0
+        foreach ($n in $playedNums) { if ($n -in $lastDraw.Nums) { $matches++ } }
+        $prize = 0
+        switch ($matches) {
+            2 { $prize = 5 }
+            3 { $prize = 25 }
+            4 { $prize = 300 }
+            5 { $prize = 10000 }
+            6 { $prize = 2000000000 }
+        }
+        $results += "Data: $($parts[0]) | Numeri: $numsStr | Match: $matches | Premio: EUR $prize"
+        $parts[7] = "si"
+        $updatedLines += ($parts -join ',')
+        $updated = $true
     }
-    
-    [System.Windows.Forms.MessageBox]::Show($msg, "Verifica Vincita", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    if ($updated) { $updatedLines | Out-File -FilePath $trackingPath -Encoding UTF8 }
+    if ($results.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Nessuna giocata da verificare con l'ultima estrazione." + [Environment]::NewLine + "Ultima estrazione: $($lastDraw.Date)" + [Environment]::NewLine + "Numeri: $($lastDraw.Nums -join ' - ')", "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } else {
+        $msg = "ULTIMA ESTRAZIONE: $($lastDraw.Date)" + [Environment]::NewLine
+        $msg += "Numeri: $($lastDraw.Nums -join ' - ')" + [Environment]::NewLine + [Environment]::NewLine
+        $msg += "RISULTATI VERIFICA:" + [Environment]::NewLine + [Environment]::NewLine
+        $msg += $results -join [Environment]::NewLine
+        [System.Windows.Forms.MessageBox]::Show($msg, "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+}
+
+function Export-Tracking {
+    if (-not (Test-Path $trackingPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Nessun file di tracking da esportare.", "Esporta Tracking", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        return
+    }
+    $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
+    $saveDialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+    $saveDialog.FileName = "superenalotto_tracking_$(Get-Date -Format 'yyyyMMdd').csv"
+    $saveDialog.Title = "Esporta Tracking"
+    if ($saveDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        Copy-Item -Path $trackingPath -Destination $saveDialog.FileName -Force
+        [System.Windows.Forms.MessageBox]::Show("Tracking esportato in: $($saveDialog.FileName)", "Esporta Tracking", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+}
+
+function Update-CSV {
+    $script:statusLabel.Text = "Tentativo aggiornamento API..."
+    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
+    $script:form.Refresh()
+    try {
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        $newCount = 0
+        $existingDates = @()
+        if (Test-Path $csvPath) {
+            $existingLines = Get-Content $csvPath -Encoding UTF8
+            foreach ($l in $existingLines) {
+                if ([string]::IsNullOrWhiteSpace($l)) { continue }
+                $p = $l -split ','
+                if ($p.Count -ge 2) { $existingDates += $p[0].Trim() }
+            }
+        }
+        foreach ($r in $response.results) {
+            $date = $r.draw_date
+            if ($date -in $existingDates) { continue }
+            $balls = $r.balls
+            $jolly = 0; $star = 0
+            if ($r.ball_bonus) {
+                if ($r.ball_bonus.Count -gt 0) { $jolly = [int]$r.ball_bonus[0] }
+                if ($r.ball_bonus.Count -gt 1) { $star = [int]$r.ball_bonus[1] }
+            }
+            $line = "$date,,$([int]$balls[0]),$([int]$balls[1]),$([int]$balls[2]),$([int]$balls[3]),$([int]$balls[4]),$([int]$balls[5]),$jolly,$star"
+            Add-Content -Path $csvPath -Value $line -Encoding UTF8
+            $newCount++
+        }
+        if ($newCount -gt 0) {
+            $script:statusLabel.Text = "OK! Aggiunti $newCount estrazioni da API!"
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+            Load-Data
+        } else {
+            $script:statusLabel.Text = "API OK. Dati gia aggiornati."
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+            Load-Data
+        }
+    } catch {
+        $script:statusLabel.Text = "API non raggiungibile. Uso CSV locale."
+        $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 68, 68)
+        Load-Data
+        [System.Windows.Forms.MessageBox]::Show("API non raggiungibile." + [Environment]::NewLine + "I dati sono stati caricati dal CSV locale." + [Environment]::NewLine + "Ultima estrazione: $script:lastDrawDate", "Aggiornamento API", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    }
+}
+
+function Get-Jackpot {
+    try {
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        if ($response.results -and $response.results.Count -gt 0) {
+            $jpRaw = $response.results[0].jackpot
+            $jp = [double]$jpRaw
+            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { 0 }
+            if ($script:jackpot -gt 0) { $script:jackpotLabel.Text = "Jackpot: EUR $script:jackpot M" }
+            else { $script:jackpotLabel.Text = "Jackpot: N/D" }
+        }
+    } catch {
+        $script:jackpot = 0
+        $script:jackpotLabel.Text = "Jackpot: N/D"
+    }
 }
 
 function Update-StatsUI {
-    if (-not $script:stats -or $script:stats.Count -eq 0) { return }
-    $s = $script:stats
-    
-    if (-not $script:statCount) { return }
-    $script:statCount.Text = "Estrazioni: $($s.Count)"
-    $script:statMean.Text = "Media: $($s.Mean)"
-    $script:statMedian.Text = "Mediana: $($s.Median)"
-    $script:statStd.Text = "Std Dev: $($s.Std)"
-    $script:statQ1Q3.Text = "Q1/Q3: $($s.Q1)/$($s.Q3)"
-    $script:statRange.Text = "Range: $($s.Min)-$($s.Max)"
-    $script:statPrimes.Text = "Primi: $($s.Primes)%"
-    $script:statExtremes.Text = "Estremi: $($s.Extremes)%"
+    if ($script:stats -eq $null) {
+        $script:lblTotEstrazioni.Text = "Estrazioni: 0"
+        $script:lblMedia.Text = "Media: N/D"
+        return
+    }
+    $script:lblTotEstrazioni.Text = "Estrazioni: $($script:stats.Count)"
+    $script:lblMedia.Text = "Media: $($script:stats.Mean)"
+    $script:lblMediana.Text = "Mediana: $($script:stats.Median)"
+    $script:lblStdDev.Text = "Std Dev: $($script:stats.StdDev)"
+    $script:lblQ1Q3.Text = "Q1: $($script:stats.Q1) | Q3: $($script:stats.Q3)"
+    $script:lblSommaRange.Text = "Range: $($script:stats.SumMin) - $($script:stats.SumMax)"
+    $script:lblPrimes.Text = "Primi: $($script:stats.PrimesPct)%"
+    $script:lblExtremes.Text = "Estremi: $($script:stats.ExtremesPct)%"
+    $script:lblGt80.Text = ">80: $($script:stats.Gt80Pct)%"
+    $script:lblEvenOdd.Text = "Pari: $($script:stats.EvenPct)% | Dispari: $($script:stats.OddPct)%"
+    if ($script:stats.FirstDate -and $script:stats.LastDate) {
+        $script:lblDateRange.Text = "Periodo: $($script:stats.FirstDate) - $($script:stats.LastDate)"
+    }
+    $topText = "TOP 10 NUMERI:" + [Environment]::NewLine
+    for ($i = 0; $i -lt [Math]::Min(10, $script:stats.Top20Numbers.Count); $i++) {
+        $item = $script:stats.Top20Numbers[$i]
+        $topText += "$($i + 1). Numero $($item.Number) (freq: $($item.Frequency))" + [Environment]::NewLine
+    }
+    $script:lblTop10.Text = $topText
 }
 
 function Update-ResultsUI {
-    if (-not $script:resultsListbox) { return }
-    $script:resultsListbox.Items.Clear()
-    foreach ($r in ($script:records | Select-Object -Last 15 | Sort-Object Date -Descending)) {
-        $numsStr = $r.Nums -join "  "
-        $script:resultsListbox.Items.Add("$($r.Date)  |  $numsStr")
+    $script:dataGrid.Rows.Clear()
+    $count = 0
+    for ($i = $script:records.Count - 1; $i -ge 0 -and $count -lt 15; $i--) {
+        $rec = $script:records[$i]
+        $numsStr = ($rec.Nums -join " - ")
+        $jollyStr = if ($rec.Jolly -gt 0) { $rec.Jolly.ToString() } else { "-" }
+        $starStr = if ($rec.Star -gt 0) { $rec.Star.ToString() } else { "-" }
+        $bgColor = if ($count % 2 -eq 0) { [System.Drawing.Color]::FromArgb(30, 30, 60) } else { [System.Drawing.Color]::FromArgb(45, 45, 75) }
+        $script:dataGrid.Rows.Add($rec.Date, $numsStr, $jollyStr, $starStr, $rec.Sum)
+        $script:dataGrid.Rows[$count].DefaultCellStyle.BackColor = $bgColor
+        $script:dataGrid.Rows[$count].DefaultCellStyle.ForeColor = [System.Drawing.Color]::White
+        $count++
     }
 }
 
-function Setup-Scheduler {
-    $taskName = "SuperEnalotto_Sniper"
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptDir\\sniper_full.ps1`""
-    $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday, Thursday, Friday, Saturday -At "19:00"
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-    
-    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($existing) {
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+function Update-PlayStatus {
+    $played = Get-PlayCountToday
+    $remaining = 2 - $played
+    if ($remaining -gt 0) {
+        $script:lblPlayStatus.Text = "Schedine oggi: $played / 2 (restano: $remaining)"
+        $script:lblPlayStatus.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+    } else {
+        $script:lblPlayStatus.Text = "LIMITE RAGGIUNTO (2/2 oggi)"
+        $script:lblPlayStatus.ForeColor = [System.Drawing.Color]::FromArgb(255, 68, 68)
     }
-    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description "SuperEnalotto Sniper - Auto aggiornamento e generazione numeri" | Out-Null
-    
-    [System.Windows.Forms.MessageBox]::Show("Scheduler attivato!`nEsecuzione ogni Mar, Gio, Ven, Sab alle 19:00", "Scheduler", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    $today = (Get-Date).DayOfWeek.ToString()
+    $nextDraw = "Martedi"
+    switch ($today) {
+        "Monday" { $nextDraw = "Martedi" }
+        "Tuesday" { $nextDraw = "Giovedi" }
+        "Wednesday" { $nextDraw = "Giovedi" }
+        "Thursday" { $nextDraw = "Venerdi" }
+        "Friday" { $nextDraw = "Sabato" }
+        "Saturday" { $nextDraw = "Martedi" }
+        "Sunday" { $nextDraw = "Martedi" }
+    }
+    $script:lblNextDraw.Text = "Prossima estrazione: $nextDraw"
+}
+# superenalotto_gui.ps1 - SuperEnalotto GUI Completa v4
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+$scriptDir = "C:\Users\Siviglino\Desktop\Superenalotto"
+$csvPath = Join-Path $scriptDir "superenalotto.csv"
+$trackingPath = Join-Path $scriptDir "tracking.csv"
+$dailyLimitPath = Join-Path $scriptDir "daily_limit.csv"
+$analisiJsonPath = Join-Path $scriptDir "analisi_completa.json"
+
+$apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+$apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=712"
+
+$script:records = @()
+$script:stats = $null
+$script:generatedNumbers = @()
+$script:jackpot = 0
+$script:lastDrawDate = ""
+
+function Is-Prime($n) {
+    if ($n -lt 2) { return $false }
+    if ($n -eq 2) { return $true }
+    if ($n % 2 -eq 0) { return $false }
+    for ($i = 3; $i -le [math]::Sqrt($n); $i += 2) {
+        if ($n % $i -eq 0) { return $false }
+    }
+    return $true
 }
 
-function Create-Form {
-    $script:form = New-Object System.Windows.Forms.Form
-    $script:form.Text = "SuperEnalotto - Protocollo Sniper"
-    $script:form.Size = New-Object System.Drawing.Size(900, 750)
-    $script:form.StartPosition = "CenterScreen"
-    $script:form.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
-    $script:form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
-    $script:form.MaximizeBox = $false
-    
-    $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "SUPERENALOTTO"
-    $titleLabel.Location = New-Object System.Drawing.Point(350, 15)
-    $titleLabel.Size = New-Object System.Drawing.Size(200, 35)
-    $titleLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
-    $script:form.Controls.Add($titleLabel)
-    
-    $subtitleLabel = New-Object System.Windows.Forms.Label
-    $subtitleLabel.Text = "Protocollo Sniper Quantitativo"
-    $subtitleLabel.Location = New-Object System.Drawing.Point(350, 50)
-    $subtitleLabel.Size = New-Object System.Drawing.Size(200, 20)
-    $subtitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(233, 69, 96)
-    $subtitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-    $script:form.Controls.Add($subtitleLabel)
-    
-    $script:statusLabel = New-Object System.Windows.Forms.Label
-    $script:statusLabel.Location = New-Object System.Drawing.Point(10, 80)
-    $script:statusLabel.Size = New-Object System.Drawing.Size(880, 25)
-    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
-    $script:statusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $script:statusLabel.Text = "Pronto"
-    $script:form.Controls.Add($script:statusLabel)
-    
-    $leftPanel = New-Object System.Windows.Forms.Panel
-    $leftPanel.Location = New-Object System.Drawing.Point(10, 110)
-    $leftPanel.Size = New-Object System.Drawing.Size(420, 590)
-    $leftPanel.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
-    $leftPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $script:form.Controls.Add($leftPanel)
-    
-    $statsHeader = New-Object System.Windows.Forms.Label
-    $statsHeader.Text = "STATISTICHE STORICHE"
-    $statsHeader.Location = New-Object System.Drawing.Point(10, 10)
-    $statsHeader.Size = New-Object System.Drawing.Size(200, 20)
-    $statsHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $statsHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $leftPanel.Controls.Add($statsHeader)
-    
-    $script:statCount = New-Object System.Windows.Forms.Label
-    $script:statCount.Location = New-Object System.Drawing.Point(20, 40)
-    $script:statCount.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statCount.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statCount)
-    
-    $script:statMean = New-Object System.Windows.Forms.Label
-    $script:statMean.Location = New-Object System.Drawing.Point(210, 40)
-    $script:statMean.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statMean.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statMean)
-    
-    $script:statMedian = New-Object System.Windows.Forms.Label
-    $script:statMedian.Location = New-Object System.Drawing.Point(20, 65)
-    $script:statMedian.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statMedian.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statMedian)
-    
-    $script:statStd = New-Object System.Windows.Forms.Label
-    $script:statStd.Location = New-Object System.Drawing.Point(210, 65)
-    $script:statStd.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statStd.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statStd)
-    
-    $script:statQ1Q3 = New-Object System.Windows.Forms.Label
-    $script:statQ1Q3.Location = New-Object System.Drawing.Point(20, 90)
-    $script:statQ1Q3.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statQ1Q3.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statQ1Q3)
-    
-    $script:statRange = New-Object System.Windows.Forms.Label
-    $script:statRange.Location = New-Object System.Drawing.Point(210, 90)
-    $script:statRange.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statRange.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statRange)
-    
-    $script:statPrimes = New-Object System.Windows.Forms.Label
-    $script:statPrimes.Location = New-Object System.Drawing.Point(20, 115)
-    $script:statPrimes.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statPrimes.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statPrimes)
-    
-    $script:statExtremes = New-Object System.Windows.Forms.Label
-    $script:statExtremes.Location = New-Object System.Drawing.Point(210, 115)
-    $script:statExtremes.Size = New-Object System.Drawing.Size(180, 20)
-    $script:statExtremes.ForeColor = [System.Drawing.Color]::White
-    $leftPanel.Controls.Add($script:statExtremes)
-    
-    $genHeader = New-Object System.Windows.Forms.Label
-    $genHeader.Text = "GENERATORE NUMERI"
-    $genHeader.Location = New-Object System.Drawing.Point(10, 150)
-    $genHeader.Size = New-Object System.Drawing.Size(200, 20)
-    $genHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $genHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $leftPanel.Controls.Add($genHeader)
-    
-    $script:jackpotLabel = New-Object System.Windows.Forms.Label
-    $script:jackpotLabel.Text = "Jackpot: N/D"
-    $script:jackpotLabel.Location = New-Object System.Drawing.Point(10, 175)
-    $script:jackpotLabel.Size = New-Object System.Drawing.Size(200, 25)
-    $script:jackpotLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
-    $script:jackpotLabel.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-    $leftPanel.Controls.Add($script:jackpotLabel)
-    
-    $btnGenerate = New-Object System.Windows.Forms.Button
-    $btnGenerate.Text = "GENERA NUMERI"
-    $btnGenerate.Location = New-Object System.Drawing.Point(10, 210)
-    $btnGenerate.Size = New-Object System.Drawing.Size(395, 40)
-    $btnGenerate.BackColor = [System.Drawing.Color]::FromArgb(233, 69, 96)
-    $btnGenerate.ForeColor = [System.Drawing.Color]::White
-    $btnGenerate.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnGenerate.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
-    $btnGenerate.Add_Click({ Generate-Numbers })
-    $leftPanel.Controls.Add($btnGenerate)
-    
-    $btnCheck = New-Object System.Windows.Forms.Button
-    $btnCheck.Text = "VERIFICA VINCITA"
-    $btnCheck.Location = New-Object System.Drawing.Point(10, 260)
-    $btnCheck.Size = New-Object System.Drawing.Size(190, 35)
-    $btnCheck.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-    $btnCheck.ForeColor = [System.Drawing.Color]::White
-    $btnCheck.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnCheck.Add_Click({ Check-Win })
-    $leftPanel.Controls.Add($btnCheck)
-    
-    $btnExport = New-Object System.Windows.Forms.Button
-    $btnExport.Text = "ESPORTA REPORT"
-    $btnExport.Location = New-Object System.Drawing.Point(215, 260)
-    $btnExport.Size = New-Object System.Drawing.Size(190, 35)
-    $btnExport.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-    $btnExport.ForeColor = [System.Drawing.Color]::White
-    $btnExport.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnExport.Add_Click({ Export-Report })
-    $leftPanel.Controls.Add($btnExport)
-    
-    $numbersHeader = New-Object System.Windows.Forms.Label
-    $numbersHeader.Text = "SCHEDINE GENERATE"
-    $numbersHeader.Location = New-Object System.Drawing.Point(10, 310)
-    $numbersHeader.Size = New-Object System.Drawing.Size(200, 20)
-    $numbersHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $numbersHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $leftPanel.Controls.Add($numbersHeader)
-    
-    $script:numbersPanel = New-Object System.Windows.Forms.Panel
-    $script:numbersPanel.Location = New-Object System.Drawing.Point(10, 335)
-    $script:numbersPanel.Size = New-Object System.Drawing.Size(395, 240)
-    $script:numbersPanel.AutoScroll = $true
-    $leftPanel.Controls.Add($script:numbersPanel)
-    
-    $rightPanel = New-Object System.Windows.Forms.Panel
-    $rightPanel.Location = New-Object System.Drawing.Point(445, 110)
-    $rightPanel.Size = New-Object System.Drawing.Size(435, 590)
-    $rightPanel.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
-    $rightPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $script:form.Controls.Add($rightPanel)
-    
-    $resultsHeader = New-Object System.Windows.Forms.Label
-    $resultsHeader.Text = "ULTIME ESTRAZIONI"
-    $resultsHeader.Location = New-Object System.Drawing.Point(10, 10)
-    $resultsHeader.Size = New-Object System.Drawing.Size(200, 20)
-    $resultsHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $resultsHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $rightPanel.Controls.Add($resultsHeader)
-    
-    $script:resultsListbox = New-Object System.Windows.Forms.ListBox
-    $script:resultsListbox.Location = New-Object System.Drawing.Point(10, 35)
-    $script:resultsListbox.Size = New-Object System.Drawing.Size(415, 250)
-    $script:resultsListbox.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
-    $script:resultsListbox.ForeColor = [System.Drawing.Color]::White
-    $script:resultsListbox.Font = New-Object System.Drawing.Font("Consolas", 9)
-    $rightPanel.Controls.Add($script:resultsListbox)
-    
-    $actionsHeader = New-Object System.Windows.Forms.Label
-    $actionsHeader.Text = "AZIONI"
-    $actionsHeader.Location = New-Object System.Drawing.Point(10, 300)
-    $actionsHeader.Size = New-Object System.Drawing.Size(200, 20)
-    $actionsHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $actionsHeader.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $rightPanel.Controls.Add($actionsHeader)
-    
-    $btnUpdate = New-Object System.Windows.Forms.Button
-    $btnUpdate.Text = "AGGIORNA CSV (API)"
-    $btnUpdate.Location = New-Object System.Drawing.Point(10, 325)
-    $btnUpdate.Size = New-Object System.Drawing.Size(200, 35)
-    $btnUpdate.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-    $btnUpdate.ForeColor = [System.Drawing.Color]::White
-    $btnUpdate.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnUpdate.Add_Click({ Update-CSV })
-    $rightPanel.Controls.Add($btnUpdate)
-    
-    $btnRefresh = New-Object System.Windows.Forms.Button
-    $btnRefresh.Text = "RICALCOLA STATS"
-    $btnRefresh.Location = New-Object System.Drawing.Point(220, 325)
-    $btnRefresh.Size = New-Object System.Drawing.Size(200, 35)
-    $btnRefresh.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-    $btnRefresh.ForeColor = [System.Drawing.Color]::White
-    $btnRefresh.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnRefresh.Add_Click({ Load-Data; $script:statusLabel.Text = "Dati ricaricati!" })
-    $rightPanel.Controls.Add($btnRefresh)
-    
-$btnScheduler = New-Object System.Windows.Forms.Button
-$btnScheduler.Text = "ATTIVA SCHEDULER"
-$btnScheduler.Location = New-Object System.Drawing.Point(10, 370)
-$btnScheduler.Size = New-Object System.Drawing.Size(200, 35)
-$btnScheduler.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-$btnScheduler.ForeColor = [System.Drawing.Color]::White
-$btnScheduler.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-$btnScheduler.Add_Click({ Setup-Scheduler })
-$rightPanel.Controls.Add($btnScheduler)
-
-$btnSettings = New-Object System.Windows.Forms.Button
-$btnSettings.Text = "IMPOSTAZIONI API"
-$btnSettings.Location = New-Object System.Drawing.Point(220, 370)
-$btnSettings.Size = New-Object System.Drawing.Size(200, 35)
-$btnSettings.BackColor = [System.Drawing.Color]::FromArgb(15, 52, 96)
-$btnSettings.ForeColor = [System.Drawing.Color]::White
-$btnSettings.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-$btnSettings.Add_Click({ Show-Settings })
-$rightPanel.Controls.Add($btnSettings)
-    
-    $infoPanel = New-Object System.Windows.Forms.Panel
-    $infoPanel.Location = New-Object System.Drawing.Point(10, 420)
-    $infoPanel.Size = New-Object System.Drawing.Size(415, 160)
-    $infoPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 50)
-    $infoPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $rightPanel.Controls.Add($infoPanel)
-    
-    $infoText = New-Object System.Windows.Forms.Label
-    $infoText.Text = "ISTRUZIONI`n`n" +
-                    "1. Clicca 'AGGIORNA CSV' per scaricare nuove estrazioni`n" +
-                    "2. Clicca 'GENERA NUMERI' per creare schedine`n" +
-                    "3. Gioca le schedine il giorno dell'estrazione`n" +
-                    "4. Usa 'VERIFICA VINCITA' per controllare i risultati`n" +
-                    "5. 'IMPOSTAZIONI API' per configurare la chiave`n" +
-                    "6. 'ATTIVA SCHEDULER' per esecuzione automatica"
-    $infoText.Location = New-Object System.Drawing.Point(10, 10)
-    $infoText.Size = New-Object System.Drawing.Size(395, 140)
-    $infoText.ForeColor = [System.Drawing.Color]::FromArgb(180, 180, 180)
-    $infoText.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-    $infoPanel.Controls.Add($infoText)
-    
-    $script:form.Controls.Add($rightPanel)
+function Get-Decade($n) {
+    return [math]::Floor(($n - 1) / 10)
 }
 
-function Show-Settings {
-    $settingsForm = New-Object System.Windows.Forms.Form
-    $settingsForm.Text = "Impostazioni API"
-    $settingsForm.Size = New-Object System.Drawing.Size(450, 280)
-    $settingsForm.StartPosition = "CenterParent"
-    $settingsForm.TopMost = $true
-    $settingsForm.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
-    
-    $lblTitle = New-Object System.Windows.Forms.Label
-    $lblTitle.Text = "CONFIGURAZIONE API"
-    $lblTitle.Location = New-Object System.Drawing.Point(120, 15)
-    $lblTitle.Size = New-Object System.Drawing.Size(200, 25)
-    $lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 217, 255)
-    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-    $settingsForm.Controls.Add($lblTitle)
-    
-    $lblUrl = New-Object System.Windows.Forms.Label
-    $lblUrl.Text = "URL API:"
-    $lblUrl.Location = New-Object System.Drawing.Point(20, 55)
-    $lblUrl.Size = New-Object System.Drawing.Size(80, 20)
-    $lblUrl.ForeColor = [System.Drawing.Color]::White
-    $settingsForm.Controls.Add($lblUrl)
-    
-    $txtUrl = New-Object System.Windows.Forms.TextBox
-    $txtUrl.Text = $script:apiUrl
-    $txtUrl.Location = New-Object System.Drawing.Point(110, 55)
-    $txtUrl.Size = New-Object System.Drawing.Size(300, 25)
-    $txtUrl.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 60)
-    $txtUrl.ForeColor = [System.Drawing.Color]::White
-    $settingsForm.Controls.Add($txtUrl)
-    
-    $lblKey = New-Object System.Windows.Forms.Label
-    $lblKey.Text = "API Key:"
-    $lblKey.Location = New-Object System.Drawing.Point(20, 90)
-    $lblKey.Size = New-Object System.Drawing.Size(80, 20)
-    $lblKey.ForeColor = [System.Drawing.Color]::White
-    $settingsForm.Controls.Add($lblKey)
-    
-    $txtKey = New-Object System.Windows.Forms.TextBox
-    $txtKey.Text = $script:apiKey
-    $txtKey.Location = New-Object System.Drawing.Point(110, 90)
-    $txtKey.Size = New-Object System.Drawing.Size(300, 25)
-    $txtKey.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 60)
-    $txtKey.ForeColor = [System.Drawing.Color]::White
-    $txtKey.UseSystemPasswordChar = $true
-    $settingsForm.Controls.Add($txtKey)
-    
-    $lblLottery = New-Object System.Windows.Forms.Label
-    $lblLottery.Text = "Lottery ID:"
-    $lblLottery.Location = New-Object System.Drawing.Point(20, 125)
-    $lblLottery.Size = New-Object System.Drawing.Size(80, 20)
-    $lblLottery.ForeColor = [System.Drawing.Color]::White
-    $settingsForm.Controls.Add($lblLottery)
-    
-    $txtLottery = New-Object System.Windows.Forms.TextBox
-    $txtLottery.Text = $script:lotteryId
-    $txtLottery.Location = New-Object System.Drawing.Point(110, 125)
-    $txtLottery.Size = New-Object System.Drawing.Size(100, 25)
-    $txtLottery.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 60)
-    $txtLottery.ForeColor = [System.Drawing.Color]::White
-    $settingsForm.Controls.Add($txtLottery)
-    
-    $btnSave = New-Object System.Windows.Forms.Button
-    $btnSave.Text = "SALVA"
-    $btnSave.Location = New-Object System.Drawing.Point(110, 170)
-    $btnSave.Size = New-Object System.Drawing.Size(100, 35)
-    $btnSave.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 0)
-    $btnSave.ForeColor = [System.Drawing.Color]::White
-    $btnSave.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnSave.Add_Click({
-        $script:apiUrl = $txtUrl.Text
-        $script:apiKey = $txtKey.Text
-        $script:lotteryId = [int]$txtLottery.Text
-        Save-Config
-        $settingsForm.Close()
-        $script:statusLabel.Text = "Configurazione salvata!"
-    })
-    $settingsForm.Controls.Add($btnSave)
-    
-    $btnCancel = New-Object System.Windows.Forms.Button
-    $btnCancel.Text = "ANNULLA"
-    $btnCancel.Location = New-Object System.Drawing.Point(220, 170)
-    $btnCancel.Size = New-Object System.Drawing.Size(100, 35)
-    $btnCancel.BackColor = [System.Drawing.Color]::FromArgb(180, 50, 50)
-    $btnCancel.ForeColor = [System.Drawing.Color]::White
-    $btnCancel.FlatStyle = [System.Windows.Forms.FlatStyle]::Popup
-    $btnCancel.Add_Click({ $settingsForm.Close() })
-    $settingsForm.Controls.Add($btnCancel)
-    
-    $lblInfo = New-Object System.Windows.Forms.Label
-    $lblInfo.Text = "L'API Key viene salvata localmente in config.json"
-    $lblInfo.Location = New-Object System.Drawing.Point(20, 215)
-    $lblInfo.Size = New-Object System.Drawing.Size(400, 20)
-    $lblInfo.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
-    $lblInfo.Font = New-Object System.Drawing.Font("Segoe UI", 8)
-    $settingsForm.Controls.Add($lblInfo)
-    
-    $settingsForm.ShowDialog()
+function Parse-CSV {
+    if (-not (Test-Path $csvPath)) { return @() }
+    $lines = Get-Content $csvPath -Encoding UTF8
+    $records = @()
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -lt 9) { continue }
+        $nums = @()
+        $valid = $true
+        for ($j = 2; $j -le 7; $j++) {
+            $valStr = $parts[$j].Trim()
+            if ([string]::IsNullOrWhiteSpace($valStr)) { $valid = $false; break }
+            $val = 0
+            if ([int]::TryParse($valStr, [ref]$val)) {
+                if ($val -lt 1 -or $val -gt 90) { $valid = $false; break }
+                $nums += $val
+            } else { $valid = $false; break }
+        }
+        if (-not $valid -or $nums.Count -ne 6) { continue }
+        $jolly = 0; $star = 0
+        $jollyStr = $parts[8].Trim()
+        if (-not [string]::IsNullOrWhiteSpace($jollyStr)) { [void][int]::TryParse($jollyStr, [ref]$jolly) }
+        if ($parts.Count -gt 9) {
+            $starStr = $parts[9].Trim()
+            if (-not [string]::IsNullOrWhiteSpace($starStr)) { [void][int]::TryParse($starStr, [ref]$star) }
+        }
+        $records += [PSCustomObject]@{
+            Date = $parts[0].Trim()
+            Nums = ($nums | Sort-Object)
+            Sum = ($nums | Measure-Object -Sum).Sum
+            Jolly = $jolly
+            Star = $star
+        }
+    }
+    return $records
 }
 
-function Export-Report {
+function Calculate-Stats {
     if ($script:records.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Nessun dato da esportare!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        $script:stats = @{ Count = 0; Mean = 276.64; Median = 0; StdDev = 0; Q1 = 0; Q3 = 0; SumMin = 0; SumMax = 0; PrimesPct = 0; ExtremesPct = 0; Gt31Pct = 0; Gt80Pct = 0; EvenPct = 0; OddPct = 0; Top20Numbers = @(); FirstDate = ""; LastDate = "" }
         return
     }
-    
-    $s = $script:stats
-    $report = @"
-========================================
-SUPERENALOTTO - REPORT
-Generato: $(Get-Date -Format "dd/MM/yyyy HH:mm")
-========================================
-
-DATI STORICI
-Estrazioni: $($s.Count)
-Periodo: $($script:records[0].Date) - $($script:records[-1].Date)
-
-STATISTICHE SOMMA
-Media: $($s.Mean)
-Mediana: $($s.Median)
-Std Dev: $($s.Std)
-Q1: $($s.Q1) | Q3: $($s.Q3)
-Range: $($s.Min) - $($s.Max)
-
-DISTRIBUZIONE NUMERI
-Primi: $($s.Primes)%
-Estremi (76-90): $($s.Extremes)%
-
-ULTIME 10 ESTRAZIONI
-"@
-    
-    foreach ($r in ($script:records | Select-Object -Last 10)) {
-        $report += "`n$($r.Date): $($r.Nums -join ' ')"
+    $sums = $script:records | ForEach-Object { $_.Sum }
+    $allNums = $script:records | ForEach-Object { $_.Nums } | ForEach-Object { $_ }
+    $sumsSorted = $sums | Sort-Object
+    $n = $sumsSorted.Count
+    $mean = ($sums | Measure-Object -Average).Average
+    $median = $sumsSorted[[int]($n / 2)]
+    $sumSq = 0
+    foreach ($s in $sums) { $sumSq += [math]::Pow($s - $mean, 2) }
+    $stdDev = [math]::Sqrt($sumSq / $n)
+    $q1 = $sumsSorted[[int]($n * 0.25)]
+    $q3 = $sumsSorted[[int]($n * 0.75)]
+    $primesCount = 0; $extremesCount = 0; $gt31Count = 0; $gt80Count = 0; $evenCount = 0
+    foreach ($num in $allNums) {
+        if (Is-Prime $num) { $primesCount++ }
+        if ($num -ge 76) { $extremesCount++ }
+        if ($num -gt 31) { $gt31Count++ }
+        if ($num -gt 80) { $gt80Count++ }
+        if ($num % 2 -eq 0) { $evenCount++ }
     }
-    
-    $report += @"
-
-========================================
-NOTE OPERATIVE
-Target somma: $([int]($s.Mean - 30)) - $([int]($s.Mean + 30))
-Fascia ottimale: 260-299
-Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
-Budget consigliato: EUR 1-2/estrazione
-========================================
-"@
-    
-    $filename = "report_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-    $report | Out-File -FilePath (Join-Path $scriptDir $filename) -Encoding UTF8
-    
-    [System.Windows.Forms.MessageBox]::Show("Report salvato in:`n$filename", "Esportazione", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    $oddCount = $allNums.Count - $evenCount
+    $freqMap = @{}
+    for ($i = 1; $i -le 90; $i++) { $freqMap[$i] = 0 }
+    foreach ($num in $allNums) { $freqMap[$num]++ }
+    $top20 = ($freqMap.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 20 | ForEach-Object { @{Number = $_.Key; Frequency = $_.Value} })
+    $script:stats = @{
+        Count = $n; Mean = [math]::Round($mean, 2); Median = $median; StdDev = [math]::Round($stdDev, 2)
+        Q1 = $q1; Q3 = $q3; SumMin = ($sums | Measure-Object -Minimum).Minimum; SumMax = ($sums | Measure-Object -Maximum).Maximum
+        PrimesPct = [math]::Round($primesCount / $allNums.Count * 100, 2)
+        ExtremesPct = [math]::Round($extremesCount / $allNums.Count * 100, 2)
+        Gt31Pct = [math]::Round($gt31Count / $allNums.Count * 100, 2)
+        Gt80Pct = [math]::Round($gt80Count / $allNums.Count * 100, 2)
+        EvenPct = [math]::Round($evenCount / $allNums.Count * 100, 2)
+        OddPct = [math]::Round($oddCount / $allNums.Count * 100, 2)
+        Top20Numbers = $top20; FirstDate = $script:records[0].Date; LastDate = $script:records[-1].Date
+    }
+    $jsonObj = [PSCustomObject]@{
+        recordCount = $n; firstDate = $script:records[0].Date; lastDate = $script:records[-1].Date
+        sumMean = [math]::Round($mean, 2); sumMedian = $median; sumStd = [math]::Round($stdDev, 2)
+        sumMin = ($sums | Measure-Object -Minimum).Minimum; sumMax = ($sums | Measure-Object -Maximum).Maximum
+        q1 = $q1; q3 = $q3
+        primesPct = [math]::Round($primesCount / $allNums.Count * 100, 2)
+        extremesPct = [math]::Round($extremesCount / $allNums.Count * 100, 2)
+        evenPct = [math]::Round($evenCount / $allNums.Count * 100, 2)
+        oddPct = [math]::Round($oddCount / $allNums.Count * 100, 2)
+        top20Numbers = $top20
+    }
+    $jsonObj | ConvertTo-Json -Depth 5 | Set-Content $analisiJsonPath -Encoding UTF8
 }
 
+function Load-Data {
+    $script:records = Parse-CSV
+    Calculate-Stats
+    if ($script:records.Count -gt 0) { $script:lastDrawDate = $script:records[-1].Date }
+    Update-StatsUI
+    Update-ResultsUI
+    Update-PlayStatus
+}
+
+function Can-PlayToday {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    if (-not (Test-Path $dailyLimitPath)) { return $true }
+    $lines = Get-Content $dailyLimitPath -Encoding UTF8
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -ge 2 -and $parts[0] -eq $today) {
+            $played = 0
+            if ([int]::TryParse($parts[1], [ref]$played)) { return $played -lt 2 }
+        }
+    }
+    return $true
+}
+
+function Get-PlayCountToday {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    if (-not (Test-Path $dailyLimitPath)) { return 0 }
+    $lines = Get-Content $dailyLimitPath -Encoding UTF8
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -ge 2 -and $parts[0] -eq $today) {
+            $played = 0
+            if ([int]::TryParse($parts[1], [ref]$played)) { return $played }
+        }
+    }
+    return 0
+}
+
+function Increment-PlayCount {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    $lines = @()
+    if (Test-Path $dailyLimitPath) { $lines = @(Get-Content $dailyLimitPath -Encoding UTF8) }
+    $found = $false
+    $newLines = @()
+    foreach ($line in $lines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts[0] -eq $today) {
+            $count = 1
+            if ($parts.Count -ge 2) { [void][int]::TryParse($parts[1], [ref]$count); $count++ }
+            $newLines += "$today,$count"
+            $found = $true
+        } else { $newLines += $line }
+    }
+    if (-not $found) { $newLines += "$today,1" }
+    $newLines | Out-File -FilePath $dailyLimitPath -Encoding UTF8
+}
+
+function Generate-Numbers {
+    if (-not (Can-PlayToday)) {
+        [System.Windows.Forms.MessageBox]::Show("Hai raggiunto il limite massimo di 2 schedine per oggi.", "Limite Giornaliero", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        return
+    }
+    if ($script:records.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati! Clicca 'AGGIORNA CSV'.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+    $meanValue = 276.64
+    if ($script:stats -ne $null -and $script:stats.Mean -gt 0) { $meanValue = $script:stats.Mean }
+    $targetLow = [int]($meanValue - 30)
+    $targetHigh = [int]($meanValue + 30)
+    $script:generatedNumbers = @()
+    for ($s = 0; $s -lt 2; $s++) {
+        $attempts = 0; $valid = $false; $bestNums = $null
+        while (-not $valid -and $attempts -lt 2000) {
+            $nums = @()
+            while ($nums.Count -lt 6) {
+                $n = Get-Random -Minimum 1 -Maximum 91
+                if ($n -notin $nums) { $nums += $n }
+            }
+            $nums = $nums | Sort-Object
+            $sum = ($nums | Measure-Object -Sum).Sum
+            $decadeCounts = @{}
+            for ($d = 0; $d -lt 9; $d++) { $decadeCounts[$d] = 0 }
+            foreach ($n in $nums) {
+                $d = Get-Decade $n
+                if ($d -lt 9) { $decadeCounts[$d]++ }
+            }
+            $maxDecade = ($decadeCounts.Values | Measure-Object -Maximum).Maximum
+            $gt80 = ($nums | Where-Object { $_ -gt 80 }).Count
+            $le31 = ($nums | Where-Object { $_ -le 31 }).Count
+            $valid = ($sum -ge $targetLow -and $sum -le $targetHigh) -and ($maxDecade -le 2) -and ($gt80 -le 1) -and ($le31 -ge 1)
+            if ($valid) { $bestNums = $nums }
+            $attempts++
+        }
+        if ($valid -and $bestNums -ne $null) {
+            $sum = ($bestNums | Measure-Object -Sum).Sum
+            $evenCount = ($bestNums | Where-Object { $_ % 2 -eq 0 }).Count
+            $script:generatedNumbers += [PSCustomObject]@{
+                Nums = $bestNums; Sum = $sum; EvenCount = $evenCount; OddCount = 6 - $evenCount; DecadeDist = $decadeCounts
+            }
+        }
+    }
+    if ($script:generatedNumbers.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Impossibile generare numeri validi. Riprova.", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+    Display-Generated
+    Save-Tracking
+    Increment-PlayCount
+    Update-PlayStatus
+    $script:statusLabel.Text = "Generati $($script:generatedNumbers.Count) schedine! (Totale oggi: $(Get-PlayCountToday))"
+    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+}
+
+function Display-Generated {
+    if ($script:generatedNumbers.Count -eq 0) { return }
+    $text = ""
+    for ($i = 0; $i -lt $script:generatedNumbers.Count; $i++) {
+        $sched = $script:generatedNumbers[$i]
+        $numsStr = ($sched.Nums -join " - ")
+        $text += "SCHEDINA $($i + 1): $numsStr" + [Environment]::NewLine
+        $text += "  Somma: $($sched.Sum) | Pari: $($sched.EvenCount) | Dispari: $($sched.OddCount)" + [Environment]::NewLine
+        $text += [Environment]::NewLine
+    }
+    $script:txtNumeri.Text = $text
+}
+
+function Save-Tracking {
+    if ($script:generatedNumbers.Count -eq 0) { return }
+    $today = Get-Date -Format "yyyy-MM-dd"
+    $dayName = (Get-Date).DayOfWeek.ToString()
+    $header = "data,giornata,budget,schedine,numeri,somma,jackpot,verificato"
+    if (-not (Test-Path $trackingPath)) { $header | Out-File -Path $trackingPath -Encoding UTF8 }
+    foreach ($sched in $script:generatedNumbers) {
+        $numsStr = $sched.Nums -join "-"
+        $line = "$today,$dayName,1.00,1,$numsStr,$($sched.Sum),$script:jackpot,no"
+        Add-Content -Path $trackingPath -Value $line -Encoding UTF8
+    }
+}
+
+function Verify-Wins {
+    if (-not (Test-Path $trackingPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Nessuna giocata registrata in tracking.csv", "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        return
+    }
+    if ($script:records.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Carica prima i dati delle estrazioni!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+    $lastDraw = $script:records[-1]
+    $lines = Get-Content $trackingPath -Encoding UTF8
+    $results = @(); $updatedLines = @(); $updated = $false
+    $header = $lines[0]; $updatedLines += $header
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts.Count -lt 8) { $updatedLines += $line; continue }
+        $verificato = $parts[7].Trim()
+        if ($verificato -eq "si") { $updatedLines += $line; continue }
+        $numsStr = $parts[4]
+        $playedNums = @()
+        foreach ($n in ($numsStr -split '-')) {
+            $val = 0
+            if ([int]::TryParse($n.Trim(), [ref]$val)) { $playedNums += $val }
+        }
+        $matches = 0
+        foreach ($n in $playedNums) { if ($n -in $lastDraw.Nums) { $matches++ } }
+        $prize = 0
+        switch ($matches) {
+            2 { $prize = 5 }
+            3 { $prize = 25 }
+            4 { $prize = 300 }
+            5 { $prize = 10000 }
+            6 { $prize = 2000000000 }
+        }
+        $results += "Data: $($parts[0]) | Numeri: $numsStr | Match: $matches | Premio: EUR $prize"
+        $parts[7] = "si"
+        $updatedLines += ($parts -join ',')
+        $updated = $true
+    }
+    if ($updated) { $updatedLines | Out-File -FilePath $trackingPath -Encoding UTF8 }
+    if ($results.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Nessuna giocata da verificare con l'ultima estrazione." + [Environment]::NewLine + "Ultima estrazione: $($lastDraw.Date)" + [Environment]::NewLine + "Numeri: $($lastDraw.Nums -join ' - ')", "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    } else {
+        $msg = "ULTIMA ESTRAZIONE: $($lastDraw.Date)" + [Environment]::NewLine
+        $msg += "Numeri: $($lastDraw.Nums -join ' - ')" + [Environment]::NewLine + [Environment]::NewLine
+        $msg += "RISULTATI VERIFICA:" + [Environment]::NewLine + [Environment]::NewLine
+        $msg += $results -join [Environment]::NewLine
+        [System.Windows.Forms.MessageBox]::Show($msg, "Verifica Vincite", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+}
+
+function Export-Tracking {
+    if (-not (Test-Path $trackingPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Nessun file di tracking da esportare.", "Esporta Tracking", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        return
+    }
+    $saveDialog = New-Object System.Windows.Forms.SaveFileDialog
+    $saveDialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+    $saveDialog.FileName = "superenalotto_tracking_$(Get-Date -Format 'yyyyMMdd').csv"
+    $saveDialog.Title = "Esporta Tracking"
+    if ($saveDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        Copy-Item -Path $trackingPath -Destination $saveDialog.FileName -Force
+        [System.Windows.Forms.MessageBox]::Show("Tracking esportato in: $($saveDialog.FileName)", "Esporta Tracking", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
+}
+
+function Update-CSV {
+    $script:statusLabel.Text = "Tentativo aggiornamento API..."
+    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
+    $script:form.Refresh()
+    try {
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        $newCount = 0
+        $existingDates = @()
+        if (Test-Path $csvPath) {
+            $existingLines = Get-Content $csvPath -Encoding UTF8
+            foreach ($l in $existingLines) {
+                if ([string]::IsNullOrWhiteSpace($l)) { continue }
+                $p = $l -split ','
+                if ($p.Count -ge 2) { $existingDates += $p[0].Trim() }
+            }
+        }
+        foreach ($r in $response.results) {
+            $date = $r.draw_date
+            if ($date -in $existingDates) { continue }
+            $balls = $r.balls
+            $jolly = 0; $star = 0
+            if ($r.ball_bonus) {
+                if ($r.ball_bonus.Count -gt 0) { $jolly = [int]$r.ball_bonus[0] }
+                if ($r.ball_bonus.Count -gt 1) { $star = [int]$r.ball_bonus[1] }
+            }
+            $line = "$date,,$([int]$balls[0]),$([int]$balls[1]),$([int]$balls[2]),$([int]$balls[3]),$([int]$balls[4]),$([int]$balls[5]),$jolly,$star"
+            Add-Content -Path $csvPath -Value $line -Encoding UTF8
+            $newCount++
+        }
+        if ($newCount -gt 0) {
+            $script:statusLabel.Text = "OK! Aggiunti $newCount estrazioni da API!"
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+            Load-Data
+        } else {
+            $script:statusLabel.Text = "API OK. Dati gia aggiornati."
+            $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+            Load-Data
+        }
+    } catch {
+        $script:statusLabel.Text = "API non raggiungibile. Uso CSV locale."
+        $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 68, 68)
+        Load-Data
+        [System.Windows.Forms.MessageBox]::Show("API non raggiungibile." + [Environment]::NewLine + "I dati sono stati caricati dal CSV locale." + [Environment]::NewLine + "Ultima estrazione: $script:lastDrawDate", "Aggiornamento API", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    }
+}
+
+function Get-Jackpot {
+    try {
+        $headers = @{ "X-API-KEY" = $apiKey }
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        if ($response.results -and $response.results.Count -gt 0) {
+            $jpRaw = $response.results[0].jackpot
+            $jp = [double]$jpRaw
+            $script:jackpot = if ($jp -gt 1000000) { [math]::Round($jp / 1000000, 1) } else { 0 }
+            if ($script:jackpot -gt 0) { $script:jackpotLabel.Text = "Jackpot: EUR $script:jackpot M" }
+            else { $script:jackpotLabel.Text = "Jackpot: N/D" }
+        }
+    } catch {
+        $script:jackpot = 0
+        $script:jackpotLabel.Text = "Jackpot: N/D"
+    }
+}
+
+function Update-StatsUI {
+    if ($script:stats -eq $null) {
+        $script:lblTotEstrazioni.Text = "Estrazioni: 0"
+        $script:lblMedia.Text = "Media: N/D"
+        return
+    }
+    $script:lblTotEstrazioni.Text = "Estrazioni: $($script:stats.Count)"
+    $script:lblMedia.Text = "Media: $($script:stats.Mean)"
+    $script:lblMediana.Text = "Mediana: $($script:stats.Median)"
+    $script:lblStdDev.Text = "Std Dev: $($script:stats.StdDev)"
+    $script:lblQ1Q3.Text = "Q1: $($script:stats.Q1) | Q3: $($script:stats.Q3)"
+    $script:lblSommaRange.Text = "Range: $($script:stats.SumMin) - $($script:stats.SumMax)"
+    $script:lblPrimes.Text = "Primi: $($script:stats.PrimesPct)%"
+    $script:lblExtremes.Text = "Estremi: $($script:stats.ExtremesPct)%"
+    $script:lblGt80.Text = ">80: $($script:stats.Gt80Pct)%"
+    $script:lblEvenOdd.Text = "Pari: $($script:stats.EvenPct)% | Dispari: $($script:stats.OddPct)%"
+    if ($script:stats.FirstDate -and $script:stats.LastDate) {
+        $script:lblDateRange.Text = "Periodo: $($script:stats.FirstDate) - $($script:stats.LastDate)"
+    }
+    $topText = "TOP 10 NUMERI:" + [Environment]::NewLine
+    for ($i = 0; $i -lt [Math]::Min(10, $script:stats.Top20Numbers.Count); $i++) {
+        $item = $script:stats.Top20Numbers[$i]
+        $topText += "$($i + 1). Numero $($item.Number) (freq: $($item.Frequency))" + [Environment]::NewLine
+    }
+    $script:lblTop10.Text = $topText
+}
+
+function Update-ResultsUI {
+    $script:dataGrid.Rows.Clear()
+    $count = 0
+    for ($i = $script:records.Count - 1; $i -ge 0 -and $count -lt 15; $i--) {
+        $rec = $script:records[$i]
+        $numsStr = ($rec.Nums -join " - ")
+        $jollyStr = if ($rec.Jolly -gt 0) { $rec.Jolly.ToString() } else { "-" }
+        $starStr = if ($rec.Star -gt 0) { $rec.Star.ToString() } else { "-" }
+        $bgColor = if ($count % 2 -eq 0) { [System.Drawing.Color]::FromArgb(30, 30, 60) } else { [System.Drawing.Color]::FromArgb(45, 45, 75) }
+        $script:dataGrid.Rows.Add($rec.Date, $numsStr, $jollyStr, $starStr, $rec.Sum)
+        $script:dataGrid.Rows[$count].DefaultCellStyle.BackColor = $bgColor
+        $script:dataGrid.Rows[$count].DefaultCellStyle.ForeColor = [System.Drawing.Color]::White
+        $count++
+    }
+}
+
+function Update-PlayStatus {
+    $played = Get-PlayCountToday
+    $remaining = 2 - $played
+    if ($remaining -gt 0) {
+        $script:lblPlayStatus.Text = "Schedine oggi: $played / 2 (restano: $remaining)"
+        $script:lblPlayStatus.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+    } else {
+        $script:lblPlayStatus.Text = "LIMITE RAGGIUNTO (2/2 oggi)"
+        $script:lblPlayStatus.ForeColor = [System.Drawing.Color]::FromArgb(255, 68, 68)
+    }
+    $today = (Get-Date).DayOfWeek.ToString()
+    $nextDraw = "Martedi"
+    switch ($today) {
+        "Monday" { $nextDraw = "Martedi" }
+        "Tuesday" { $nextDraw = "Giovedi" }
+        "Wednesday" { $nextDraw = "Giovedi" }
+        "Thursday" { $nextDraw = "Venerdi" }
+        "Friday" { $nextDraw = "Sabato" }
+        "Saturday" { $nextDraw = "Martedi" }
+        "Sunday" { $nextDraw = "Martedi" }
+    }
+    $script:lblNextDraw.Text = "Prossima estrazione: $nextDraw"
+}
+# === GUI CREATION ===
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "SuperEnalotto - Algoritmo Sniper v4"
+$form.Size = New-Object System.Drawing.Size(1100, 800)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
+
+$panelHeader = New-Object System.Windows.Forms.Panel
+$panelHeader.Location = New-Object System.Drawing.Point(0, 0)
+$panelHeader.Size = New-Object System.Drawing.Size(1080, 60)
+$panelHeader.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
+$panelHeader.Parent = $form
+
+$lblTitle = New-Object System.Windows.Forms.Label
+$lblTitle.Location = New-Object System.Drawing.Point(20, 15)
+$lblTitle.Size = New-Object System.Drawing.Size(500, 30)
+$lblTitle.Text = "SUPERENALOTTO - ALGORITMO SNIPER v4"
+$lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblTitle.Parent = $panelHeader
+
+$script:jackpotLabel = New-Object System.Windows.Forms.Label
+$script:jackpotLabel.Location = New-Object System.Drawing.Point(700, 20)
+$script:jackpotLabel.Size = New-Object System.Drawing.Size(360, 25)
+$script:jackpotLabel.Text = "Jackpot: N/D"
+$script:jackpotLabel.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$script:jackpotLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
+$script:jackpotLabel.TextAlign = [System.Drawing.ContentAlignment]::TopRight
+$script:jackpotLabel.Parent = $panelHeader
+
+$panelStats = New-Object System.Windows.Forms.Panel
+$panelStats.Location = New-Object System.Drawing.Point(20, 75)
+$panelStats.Size = New-Object System.Drawing.Size(320, 470)
+$panelStats.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
+$panelStats.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$panelStats.Parent = $form
+
+$lblStatsTitle = New-Object System.Windows.Forms.Label
+$lblStatsTitle.Location = New-Object System.Drawing.Point(10, 10)
+$lblStatsTitle.Size = New-Object System.Drawing.Size(300, 25)
+$lblStatsTitle.Text = "STATISTICHE STORICHE"
+$lblStatsTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$lblStatsTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblStatsTitle.Parent = $panelStats
+
+$script:lblTotEstrazioni = New-Object System.Windows.Forms.Label
+$script:lblTotEstrazioni.Location = New-Object System.Drawing.Point(10, 45)
+$script:lblTotEstrazioni.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblTotEstrazioni.ForeColor = [System.Drawing.Color]::White
+$script:lblTotEstrazioni.Parent = $panelStats
+
+$script:lblDateRange = New-Object System.Windows.Forms.Label
+$script:lblDateRange.Location = New-Object System.Drawing.Point(10, 65)
+$script:lblDateRange.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblDateRange.ForeColor = [System.Drawing.Color]::White
+$script:lblDateRange.Parent = $panelStats
+
+$script:lblMedia = New-Object System.Windows.Forms.Label
+$script:lblMedia.Location = New-Object System.Drawing.Point(10, 95)
+$script:lblMedia.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblMedia.ForeColor = [System.Drawing.Color]::White
+$script:lblMedia.Parent = $panelStats
+
+$script:lblMediana = New-Object System.Windows.Forms.Label
+$script:lblMediana.Location = New-Object System.Drawing.Point(10, 115)
+$script:lblMediana.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblMediana.ForeColor = [System.Drawing.Color]::White
+$script:lblMediana.Parent = $panelStats
+
+$script:lblStdDev = New-Object System.Windows.Forms.Label
+$script:lblStdDev.Location = New-Object System.Drawing.Point(10, 135)
+$script:lblStdDev.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblStdDev.ForeColor = [System.Drawing.Color]::White
+$script:lblStdDev.Parent = $panelStats
+
+$script:lblQ1Q3 = New-Object System.Windows.Forms.Label
+$script:lblQ1Q3.Location = New-Object System.Drawing.Point(10, 155)
+$script:lblQ1Q3.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblQ1Q3.ForeColor = [System.Drawing.Color]::White
+$script:lblQ1Q3.Parent = $panelStats
+
+$script:lblSommaRange = New-Object System.Windows.Forms.Label
+$script:lblSommaRange.Location = New-Object System.Drawing.Point(10, 175)
+$script:lblSommaRange.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblSommaRange.ForeColor = [System.Drawing.Color]::White
+$script:lblSommaRange.Parent = $panelStats
+
+$script:lblPrimes = New-Object System.Windows.Forms.Label
+$script:lblPrimes.Location = New-Object System.Drawing.Point(10, 205)
+$script:lblPrimes.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblPrimes.ForeColor = [System.Drawing.Color]::White
+$script:lblPrimes.Parent = $panelStats
+
+$script:lblExtremes = New-Object System.Windows.Forms.Label
+$script:lblExtremes.Location = New-Object System.Drawing.Point(10, 225)
+$script:lblExtremes.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblExtremes.ForeColor = [System.Drawing.Color]::White
+$script:lblExtremes.Parent = $panelStats
+
+$script:lblGt80 = New-Object System.Windows.Forms.Label
+$script:lblGt80.Location = New-Object System.Drawing.Point(10, 245)
+$script:lblGt80.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblGt80.ForeColor = [System.Drawing.Color]::White
+$script:lblGt80.Parent = $panelStats
+
+$script:lblEvenOdd = New-Object System.Windows.Forms.Label
+$script:lblEvenOdd.Location = New-Object System.Drawing.Point(10, 265)
+$script:lblEvenOdd.Size = New-Object System.Drawing.Size(300, 20)
+$script:lblEvenOdd.ForeColor = [System.Drawing.Color]::White
+$script:lblEvenOdd.Parent = $panelStats
+
+$script:lblTop10 = New-Object System.Windows.Forms.Label
+$script:lblTop10.Location = New-Object System.Drawing.Point(10, 300)
+$script:lblTop10.Size = New-Object System.Drawing.Size(300, 160)
+$script:lblTop10.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
+$script:lblTop10.Font = New-Object System.Drawing.Font("Consolas", 9)
+$script:lblTop10.Parent = $panelStats
+
+$panelResults = New-Object System.Windows.Forms.Panel
+$panelResults.Location = New-Object System.Drawing.Point(355, 75)
+$panelResults.Size = New-Object System.Drawing.Size(410, 470)
+$panelResults.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
+$panelResults.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$panelResults.Parent = $form
+
+$lblResultsTitle = New-Object System.Windows.Forms.Label
+$lblResultsTitle.Location = New-Object System.Drawing.Point(10, 10)
+$lblResultsTitle.Size = New-Object System.Drawing.Size(390, 25)
+$lblResultsTitle.Text = "ULTIME ESTRAZIONI"
+$lblResultsTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$lblResultsTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblResultsTitle.Parent = $panelResults
+
+$script:dataGrid = New-Object System.Windows.Forms.DataGridView
+$script:dataGrid.Location = New-Object System.Drawing.Point(10, 45)
+$script:dataGrid.Size = New-Object System.Drawing.Size(390, 415)
+$script:dataGrid.BackgroundColor = [System.Drawing.Color]::FromArgb(30, 30, 60)
+$script:dataGrid.RowHeadersVisible = $false
+$script:dataGrid.ColumnCount = 5
+$script:dataGrid.Columns[0].Name = "Data"
+$script:dataGrid.Columns[1].Name = "Numeri"
+$script:dataGrid.Columns[2].Name = "Jolly"
+$script:dataGrid.Columns[3].Name = "Star"
+$script:dataGrid.Columns[4].Name = "Somma"
+$script:dataGrid.Columns[0].Width = 85
+$script:dataGrid.Columns[1].Width = 170
+$script:dataGrid.Columns[2].Width = 50
+$script:dataGrid.Columns[3].Width = 50
+$script:dataGrid.Columns[4].Width = 55
+$script:dataGrid.AllowUserToAddRows = $false
+$script:dataGrid.AllowUserToDeleteRows = $false
+$script:dataGrid.ReadOnly = $true
+$script:dataGrid.Parent = $panelResults
+
+$panelActions = New-Object System.Windows.Forms.Panel
+$panelActions.Location = New-Object System.Drawing.Point(780, 75)
+$panelActions.Size = New-Object System.Drawing.Size(300, 470)
+$panelActions.BackColor = [System.Drawing.Color]::FromArgb(22, 33, 62)
+$panelActions.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+$panelActions.Parent = $form
+
+$lblActionsTitle = New-Object System.Windows.Forms.Label
+$lblActionsTitle.Location = New-Object System.Drawing.Point(10, 10)
+$lblActionsTitle.Size = New-Object System.Drawing.Size(280, 25)
+$lblActionsTitle.Text = "AZIONI"
+$lblActionsTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$lblActionsTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblActionsTitle.Parent = $panelActions
+
+$btnUpdate = New-Object System.Windows.Forms.Button
+$btnUpdate.Location = New-Object System.Drawing.Point(10, 45)
+$btnUpdate.Size = New-Object System.Drawing.Size(280, 35)
+$btnUpdate.Text = "AGGIORNA CSV (API)"
+$btnUpdate.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 200)
+$btnUpdate.ForeColor = [System.Drawing.Color]::White
+$btnUpdate.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnUpdate.Add_Click({ Update-CSV })
+$btnUpdate.Parent = $panelActions
+
+$btnRefresh = New-Object System.Windows.Forms.Button
+$btnRefresh.Location = New-Object System.Drawing.Point(10, 90)
+$btnRefresh.Size = New-Object System.Drawing.Size(280, 35)
+$btnRefresh.Text = "RICALCOLA STATS"
+$btnRefresh.BackColor = [System.Drawing.Color]::FromArgb(100, 100, 150)
+$btnRefresh.ForeColor = [System.Drawing.Color]::White
+$btnRefresh.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnRefresh.Add_Click({ Load-Data; $script:statusLabel.Text = "Dati ricaricati!" })
+$btnRefresh.Parent = $panelActions
+
+$btnGenerate = New-Object System.Windows.Forms.Button
+$btnGenerate.Location = New-Object System.Drawing.Point(10, 135)
+$btnGenerate.Size = New-Object System.Drawing.Size(280, 35)
+$btnGenerate.Text = "GENERA NUMERI"
+$btnGenerate.BackColor = [System.Drawing.Color]::FromArgb(0, 180, 100)
+$btnGenerate.ForeColor = [System.Drawing.Color]::White
+$btnGenerate.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnGenerate.Add_Click({ Generate-Numbers })
+$btnGenerate.Parent = $panelActions
+
+$btnVerify = New-Object System.Windows.Forms.Button
+$btnVerify.Location = New-Object System.Drawing.Point(10, 180)
+$btnVerify.Size = New-Object System.Drawing.Size(280, 35)
+$btnVerify.Text = "VERIFICA VINCITE"
+$btnVerify.BackColor = [System.Drawing.Color]::FromArgb(200, 150, 0)
+$btnVerify.ForeColor = [System.Drawing.Color]::White
+$btnVerify.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnVerify.Add_Click({ Verify-Wins })
+$btnVerify.Parent = $panelActions
+
+$btnExport = New-Object System.Windows.Forms.Button
+$btnExport.Location = New-Object System.Drawing.Point(10, 225)
+$btnExport.Size = New-Object System.Drawing.Size(280, 35)
+$btnExport.Text = "ESPORTA TRACKING"
+$btnExport.BackColor = [System.Drawing.Color]::FromArgb(150, 100, 50)
+$btnExport.ForeColor = [System.Drawing.Color]::White
+$btnExport.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnExport.Add_Click({ Export-Tracking })
+$btnExport.Parent = $panelActions
+
+$lblPlayTitle = New-Object System.Windows.Forms.Label
+$lblPlayTitle.Location = New-Object System.Drawing.Point(10, 280)
+$lblPlayTitle.Size = New-Object System.Drawing.Size(280, 20)
+$lblPlayTitle.Text = "STATO GIOCATA"
+$lblPlayTitle.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$lblPlayTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblPlayTitle.Parent = $panelActions
+
+$script:lblPlayStatus = New-Object System.Windows.Forms.Label
+$script:lblPlayStatus.Location = New-Object System.Drawing.Point(10, 305)
+$script:lblPlayStatus.Size = New-Object System.Drawing.Size(280, 20)
+$script:lblPlayStatus.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
+$script:lblPlayStatus.Parent = $panelActions
+
+$script:lblNextDraw = New-Object System.Windows.Forms.Label
+$script:lblNextDraw.Location = New-Object System.Drawing.Point(10, 330)
+$script:lblNextDraw.Size = New-Object System.Drawing.Size(280, 20)
+$script:lblNextDraw.ForeColor = [System.Drawing.Color]::White
+$script:lblNextDraw.Parent = $panelActions
+
+$lblNumeriTitle = New-Object System.Windows.Forms.Label
+$lblNumeriTitle.Location = New-Object System.Drawing.Point(10, 360)
+$lblNumeriTitle.Size = New-Object System.Drawing.Size(280, 20)
+$lblNumeriTitle.Text = "NUMERI GENERATI"
+$lblNumeriTitle.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$lblNumeriTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 255)
+$lblNumeriTitle.Parent = $panelActions
+
+$script:txtNumeri = New-Object System.Windows.Forms.TextBox
+$script:txtNumeri.Location = New-Object System.Drawing.Point(10, 385)
+$script:txtNumeri.Size = New-Object System.Drawing.Size(280, 80)
+$script:txtNumeri.Multiline = $true
+$script:txtNumeri.ReadOnly = $true
+$script:txtNumeri.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 60)
+$script:txtNumeri.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
+$script:txtNumeri.Font = New-Object System.Drawing.Font("Consolas", 9)
+$script:txtNumeri.Text = "Clicca 'GENERA NUMERI' per iniziare"
+$script:txtNumeri.Parent = $panelActions
+
+$script:statusLabel = New-Object System.Windows.Forms.Label
+$script:statusLabel.Location = New-Object System.Drawing.Point(0, 555)
+$script:statusLabel.Size = New-Object System.Drawing.Size(1080, 25)
+$script:statusLabel.Text = "Pronto. Clicca 'AGGIORNA CSV' per iniziare."
+$script:statusLabel.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 40)
+$script:statusLabel.ForeColor = [System.Drawing.Color]::White
+$script:statusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+$script:statusLabel.Parent = $form
+
 Load-Data
-Create-Form
-Update-StatsUI
-Update-ResultsUI
 Get-Jackpot
 
 $today = (Get-Date).DayOfWeek.ToString()
+$drawDays = @("Tuesday", "Thursday", "Friday", "Saturday")
 if ($today -in $drawDays) {
     $script:statusLabel.Text = "OGGI E' $today - GIORNO DI ESTRAZIONE!"
     $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 136)
-} else {
-    $script:statusLabel.Text = "Prossima estrazione: "
-    $script:statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 204, 0)
 }
 
-$script:form.ShowDialog()
+$form.ShowDialog()

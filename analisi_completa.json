@@ -1,60 +1,98 @@
 ﻿{
-    "recordCount":  4193,
+    "recordCount":  4223,
     "firstDate":  "1997-12-03",
     "lastDate":  "2026-08-13",
-    "sumMean":  276.64,
+    "sumMean":  276.39,
     "sumMedian":  277,
-    "sumStd":  61.95,
+    "sumStd":  61.94,
     "sumMin":  81,
     "sumMax":  467,
     "q1":  234,
     "q3":  319,
-    "primesPct":  26.27,
-    "extremesPct":  17.59,
-    "gt31Pct":  66.51,
-    "gt80Pct":  11.81,
-    "evenPct":  49.52,
-    "oddPct":  50.48,
-    "topSumBuckets":  [
-                          {
-                              "bucket":  260,
-                              "count":  549
-                          },
-                          {
-                              "bucket":  280,
-                              "count":  494
-                          },
-                          {
-                              "bucket":  300,
-                              "count":  492
-                          },
-                          {
-                              "bucket":  240,
-                              "count":  461
-                          },
-                          {
-                              "bucket":  220,
-                              "count":  398
-                          },
-                          {
-                              "bucket":  320,
-                              "count":  380
-                          },
-                          {
-                              "bucket":  200,
-                              "count":  315
-                          },
-                          {
-                              "bucket":  340,
-                              "count":  285
-                          },
-                          {
-                              "bucket":  180,
-                              "count":  192
-                          },
-                          {
-                              "bucket":  360,
-                              "count":  152
-                          }
-                      ]
+    "primesPct":  26.24,
+    "extremesPct":  17.53,
+    "evenPct":  49.55,
+    "oddPct":  50.45,
+    "top20Numbers":  [
+                         {
+                             "Frequency":  324,
+                             "Number":  85
+                         },
+                         {
+                             "Frequency":  316,
+                             "Number":  6
+                         },
+                         {
+                             "Frequency":  312,
+                             "Number":  79
+                         },
+                         {
+                             "Frequency":  308,
+                             "Number":  81
+                         },
+                         {
+                             "Frequency":  308,
+                             "Number":  49
+                         },
+                         {
+                             "Frequency":  307,
+                             "Number":  83
+                         },
+                         {
+                             "Frequency":  307,
+                             "Number":  55
+                         },
+                         {
+                             "Frequency":  307,
+                             "Number":  86
+                         },
+                         {
+                             "Frequency":  306,
+                             "Number":  80
+                         },
+                         {
+                             "Frequency":  305,
+                             "Number":  77
+                         },
+                         {
+                             "Frequency":  302,
+                             "Number":  52
+                         },
+                         {
+                             "Frequency":  302,
+                             "Number":  82
+                         },
+                         {
+                             "Frequency":  301,
+                             "Number":  62
+                         },
+                         {
+                             "Frequency":  301,
+                             "Number":  45
+                         },
+                         {
+                             "Frequency":  300,
+                             "Number":  68
+                         },
+                         {
+                             "Frequency":  300,
+                             "Number":  39
+                         },
+                         {
+                             "Frequency":  300,
+                             "Number":  90
+                         },
+                         {
+                             "Frequency":  297,
+                             "Number":  66
+                         },
+                         {
+                             "Frequency":  296,
+                             "Number":  88
+                         },
+                         {
+                             "Frequency":  294,
+                             "Number":  19
+                         }
+                     ]
 }
