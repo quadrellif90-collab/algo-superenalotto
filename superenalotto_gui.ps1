@@ -8,7 +8,9 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $csvPath = Join-Path $scriptDir "superenalotto.csv"
 $trackingPath = Join-Path $scriptDir "tracking.csv"
 $configPath = Join-Path $scriptDir "config.json"
+$dailyLimitPath = Join-Path $scriptDir "daily_limit.csv"
 $drawDays = @("Tuesday", "Thursday", "Friday", "Saturday")
+$script:DailyMaxSchedines = 2
 
 $script:records = @()
 $script:stats = @{}
@@ -175,7 +177,32 @@ function Get-Jackpot {
     }
 }
 
+function Can-PlayToday {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    if (-not (Test-Path $dailyLimitPath)) {
+        return $true
+    }
+    try {
+        $limits = Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -eq $today }
+        if ($limits.Count -eq 0) { return $true }
+        $played = [int]$limits[0].schedine_giocate
+        return $played -lt $script:DailyMaxSchedines
+    } catch {
+        return $true
+    }
+}
+
 function Generate-Numbers {
+    if (-not (Can-PlayToday)) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Hai raggiunto il limite massimo di 2 schedine per oggi.`n`n" +
+            "Gioca domani o aspetta la prossima estrazione.",
+            "Limite Giornaliero",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+        return
+    }
     if ($script:records.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show("Carica prima i dati!", "Errore", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
@@ -282,6 +309,27 @@ function Save-Tracking {
         Add-Content -Path $trackingPath -Value $line
     }
     
+    # Aggiorna il file di limitazione giornaliero
+    $todayStr = $today
+    $played = 0
+    if (Test-Path $dailyLimitPath) {
+        $existing = Import-Csv -Path $dailyLimitPath | Where-Object { $_.data -eq $todayStr }
+        if ($existing.Count -gt 0) {
+            $played = [int]$existing[0].schedine_giocate
+        }
+    }
+    if ($played -lt 2) {
+        $played++
+        $entry = [PSCustomObject]@{
+            data = $todayStr
+            schedine_giocate = $played
+        }
+        $existing | ForEach-Object { $_.schedine_giocate += 1 } | Export-Csv -Path $dailyLimitPath -NoTypeInformation
+        if (-not $existing) {
+            $entry | Export-Csv -Path $dailyLimitPath -NoTypeInformation
+        }
+    }
+    
     $statusLabel.Text = "Tracking salvato! ($($script:generatedNumbers.Count) schedine)"
 }
 
@@ -337,7 +385,7 @@ function Update-ResultsUI {
 
 function Setup-Scheduler {
     $taskName = "SuperEnalotto_Sniper"
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$csvPath\..\sniper.ps1`""
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptDir\\sniper.ps1`""
     $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday, Thursday, Friday, Saturday -At "19:00"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     
