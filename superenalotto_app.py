@@ -418,10 +418,12 @@ class SuperenalottoApp:
                         jolly = int(row[10]) if len(row) > 10 and row[10] else 0
                         star = int(row[11]) if len(row) > 11 and row[11] else 0
                     data_raw = row[0]
+                    # normalizza sempre a ISO YYYY-MM-DD (gestisce formati misti)
                     try:
-                        data_norm = datetime.strptime(
-                            data_raw, "%Y-%m-%d"
-                        ).strftime("%d/%m/%Y")
+                        if "/" in data_raw:
+                            data_norm = datetime.strptime(data_raw, "%d/%m/%Y").strftime("%Y-%m-%d")
+                        else:
+                            data_norm = datetime.strptime(data_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
                     except:
                         data_norm = data_raw
                     self.records.append(
@@ -501,18 +503,19 @@ class SuperenalottoApp:
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
 
-        # ordina per data decrescente (più recente in alto)
+        # ordina per data decrescente (ISO YYYY-MM-DD)
         def _pd(r):
             try:
-                return datetime.strptime(r["data"], "%d/%m/%Y")
+                return datetime.strptime(r["data"], "%Y-%m-%d")
             except:
                 return datetime.min
 
         sorted_recs = sorted(self.records, key=_pd, reverse=True)
+        # inserisci in coda (le prime = più recenti finiscono in alto)
         for record in sorted_recs[:10]:
             self.results_tree.insert(
                 "",
-                0,
+                "end",
                 values=[
                     record["data"],
                     record["nums"][0],
@@ -892,12 +895,15 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         jolly = int(bonus[0]) if bonus else 0
         star = int(data.get("star", 0) or 0)
         jp = float(jackpot if jackpot is not None else data.get("jackpot", 0) or 0)
-        data_str = str(data.get("draw_date", datetime.now().strftime("%d/%m/%Y")))
-        # lotteryresultsfeed usa YYYY-MM-DD
+        data_str = str(data.get("draw_date", datetime.now().strftime("%Y-%m-%d")))
+        # normalizza a ISO YYYY-MM-DD (coerente con il resto del DB)
         try:
-            data_str = datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+            data_str = datetime.strptime(data_str, "%Y-%m-%d").strftime("%Y-%m-%d")
         except:
-            pass
+            try:
+                data_str = datetime.strptime(data_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except:
+                pass
         # aggiorna jackpot label (in palio, da config) e ultimo montepremi (da API)
         if jp > 0:
             self.last_prize_label.config(text=f"€{jp:,.0f}")
