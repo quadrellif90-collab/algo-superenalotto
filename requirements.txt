@@ -1,3 +1,4 @@
 # Requirements for SuperEnalotto App
 # Python 3.x required
 # No external dependencies needed - uses only built-in libraries
+# tkinter, csv, json, random, os, datetime, collections

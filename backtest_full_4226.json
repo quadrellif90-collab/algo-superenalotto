@@ -1,0 +1,77 @@
+﻿{
+    "bestStrategy":  "Random",
+    "metadata":  {
+                     "totalDraws":  4226,
+                     "dateRange":  "1997-12-03 to 2026-08-21",
+                     "prizeStructure":  {
+                                            "5":  1000,
+                                            "6":  1000000,
+                                            "4":  100,
+                                            "3":  10
+                                        },
+                     "ticketsPerDraw":  2,
+                     "totalTicketsPerStrategy":  8452
+                 },
+    "strategies":  {
+                       "Random":  {
+                                      "netResult":  -8042,
+                                      "match6":  0,
+                                      "drawsTested":  4226,
+                                      "totalTickets":  8452,
+                                      "match4":  1,
+                                      "totalWon":  410,
+                                      "match5":  0,
+                                      "roiPercent":  4.85,
+                                      "match3":  31,
+                                      "totalSpent":  8452
+                                  },
+                       "OriginalConstraints":  {
+                                                   "netResult":  -8282,
+                                                   "match6":  0,
+                                                   "drawsTested":  4226,
+                                                   "totalTickets":  8452,
+                                                   "match4":  0,
+                                                   "totalWon":  170,
+                                                   "match5":  0,
+                                                   "roiPercent":  2.01,
+                                                   "match3":  17,
+                                                   "totalSpent":  8452
+                                               },
+                       "HotColdOptimized":  {
+                                                "netResult":  -8192,
+                                                "match6":  0,
+                                                "drawsTested":  4226,
+                                                "totalTickets":  8452,
+                                                "match4":  0,
+                                                "totalWon":  260,
+                                                "match5":  0,
+                                                "roiPercent":  3.08,
+                                                "match3":  26,
+                                                "totalSpent":  8452
+                                            },
+                       "PositionBased":  {
+                                             "netResult":  -8142,
+                                             "match6":  0,
+                                             "drawsTested":  4226,
+                                             "totalTickets":  8452,
+                                             "match4":  0,
+                                             "totalWon":  310,
+                                             "match5":  0,
+                                             "roiPercent":  3.67,
+                                             "match3":  31,
+                                             "totalSpent":  8452
+                                         },
+                       "AntiRecent":  {
+                                          "netResult":  -8252,
+                                          "match6":  0,
+                                          "drawsTested":  4226,
+                                          "totalTickets":  8452,
+                                          "match4":  0,
+                                          "totalWon":  200,
+                                          "match5":  0,
+                                          "roiPercent":  2.37,
+                                          "match3":  20,
+                                          "totalSpent":  8452
+                                      }
+                   }
+}

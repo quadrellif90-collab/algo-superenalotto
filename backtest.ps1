@@ -1,3 +1,4 @@
+# backtest.ps1 - SuperEnalotto Backtest v3 (CORRETTO)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -27,7 +28,7 @@ if (Test-Path $csvPath) {
     }
 }
 
-Write-Host "Dataset caricato: $($records.Count) estrazioni"
+Write-Host "Dataset caricato: $($records.Count) estrazioni" -ForegroundColor Cyan
 
 # Prime function
 function Test-Prime($n) {
@@ -42,6 +43,7 @@ function Test-Prime($n) {
 
 # Genera schedina con criteri anti-mercato
 function Generate-Schedina {
+    if ($records.Count -eq 0) { return @{ Nums = @(); Sum = 0 } }
     $sums = $records | ForEach-Object { $_.Sum }
     $mean = ($sums | Measure-Object -Average).Average
     
@@ -74,33 +76,13 @@ function Generate-Schedina {
     }
 }
 
-# Back test results structure
-function New-BacktestResult {
-    return @{
-        drawsTested = 0
-        totalTickets = 0
-        match2 = 0
-        match3 = 0
-        match4 = 0
-        match5 = 0
-        match6 = 0
-        totalPrizeWon = 0
-        totalSpent = 0
-        netProfit = 0
-        avgMatches = 0
-        strategyName = ""
-        matchDetails = @()
-    }
-}
-
 # Calcolo vincita
 function Get-Prize([int]$matches) {
     switch ($matches) {
         6 { return 10000000 }  # jackpot
         5 { return 10000 }
-        5 { return 10000; break }
-        4 { return 100; break }
-        3 { return 10; break }
+        4 { return 100 }
+        3 { return 10 }
         default { return 0 }
     }
 }
@@ -115,12 +97,24 @@ function Run-Backtest {
         [string]$outputFile = ""
     )
     
-    $result = New-BacktestResult
-    $result.strategyName = $strategyName
-    $result.drawsTested = [Math]::Min($drawsToTest, $records.Count)
+    $result = @{
+        drawsTested = [Math]::Min($drawsToTest, $records.Count)
+        totalTickets = 0
+        match2 = 0
+        match3 = 0
+        match4 = 0
+        match5 = 0
+        match6 = 0
+        totalPrizeWon = 0
+        totalSpent = 0
+        netProfit = 0
+        avgMatches = 0
+        strategyName = $strategyName
+        matchDetails = @()
+    }
     
     Write-Host "=== BACKTEST: $strategyName ===" -ForegroundColor Cyan
-    Write-Host "Draws: $($result.drawsTested), Tickets/draw: $ticketsPerDraw"
+    Write-Host "Draws: $($result.drawsTested), Tickets/draw: $ticketsPerDraw" -ForegroundColor White
     
     $processed = 0
     $fixedPair = $null
@@ -135,9 +129,9 @@ function Run-Backtest {
         # Strategia 1: stessa coppia sempre
         if ($strategyName -eq "Same Pair Repeated") {
             if (-not $fixedPair) {
-                $pair = @($generatePair.Invoke())
-                $fixedPair = $pair[0].Nums
-                $fixedPairStr = ($pair[0].Nums -join ",")
+                $pair = & $generatePair
+                $fixedPair = $pair.Nums
+                $fixedPairStr = ($pair.Nums -join ",")
             }
             $tickets = @()
             for ($t = 0; $t -lt $ticketsPerDraw; $t++) {
@@ -146,7 +140,7 @@ function Run-Backtest {
         } 
         # Strategia 2: coppia casuale nuova ogni volta
         elseif ($strategyName -eq "Random New Pair Each Draw") {
-            $pair = @($generatePair.Invoke())
+            $pair = & $generatePair
             $tickets = @()
             for ($t = 0; $t -lt $ticketsPerDraw; $t++) {
                 $tickets += $pair[$t % 2].Nums
@@ -154,14 +148,14 @@ function Run-Backtest {
         }
         # Strategia 3: coppia ottimizzata alta entropia
         elseif ($strategyName -eq "High-Entropy Pair") {
-            $pair = @($generatePair.Invoke())
+            $pair = & $generatePair
             $tickets = @()
             for ($t = 0; $t -lt $ticketsPerDraw; $t++) {
                 $tickets += $pair[$t].Nums
             }
         }
         else {
-            $pair = @($generatePair.Invoke())
+            $pair = & $generatePair
             $tickets = @()
             for ($t = 0; $t -lt $ticketsPerDraw; $t++) {
                 $tickets += $pair[$t % 2].Nums
@@ -177,17 +171,17 @@ function Run-Backtest {
             $result.totalPrizeWon += $prize
             
             switch ($matches) {
-                6 { $result.match6 += 1 }
-                5 { $result.match5 += 1 }
-                4 { $result.match4 += 1 }
-                3 { $result.match3 += 1 }
-                2 { $result.match2 += 1 }
+                6 { $result.match6++ }
+                5 { $result.match5++ }
+                4 { $result.match4++ }
+                3 { $result.match3++ }
+                2 { $result.match2++ }
             }
             
             $result.matchDetails += @{
                 date = $draw.Date
-                ticket = $ticket -join ","
-                draw = $drawNums -join ","
+                ticket = ($ticket -join ",")
+                draw = ($drawNums -join ",")
                 matches = $matches
                 prize = $prize
             }
@@ -199,16 +193,21 @@ function Run-Backtest {
         }
     }
     
-    $result.avgMatches = if ($result.drawsTested -gt 0) { [math]::Round(($result.match2 + $result.match3 + $result.match4 + $result.match5 + $result.match6) / $result.drawsTested, 4) } else { 0 }
+    $result.avgMatches = if ($result.drawsTested -gt 0) { 
+        [math]::Round(($result.match2 + $result.match3 + $result.match4 + $result.match5 + $result.match6) / $result.drawsTested, 4) 
+    } else { 0 }
     $result.netProfit = $result.totalPrizeWon - $result.totalSpent
     
-    Write-Host "[COMPLETATO] Match 6: $($result.match6), Match 5: $($result.match5), Match 4: $($result.match4), Match 3: $($result.match3)" -ForegroundColor Green
-    Write-Host "Spent: EUR $($result.totalSpent), Won: EUR $($result.totalPrizeWon), Net: EUR $($result.netProfit)" -ForegroundColor Green
+    Write-Host "[COMPLETATO] Match 6: $($result.match6), Match 5: $($result.match5), 
+Match 4: $($result.match4), Match 3: $($result.match3) -ForegroundColor Green
+    Write-Host "Spent: EUR $($result.totalSpent), Won: EUR $($result.totalPrizeWon), 
+Net: EUR $($result.netProfit) -ForegroundColor Green
+    "
     
     return $result
 }
 
-# Genera report finale
+# Write report final
 function Write-BacktestReport {
     param (
         [string]$outputFile,
@@ -227,27 +226,23 @@ Estrazioni totali: $($records.Count)
 
 "@
     
-    $report += ""
-    $report += "RISULTATI BACKTEST:`n`n"
+    $report += "`n`nRISULTATI BACKTEST:`n`n"
     
     foreach ($r in $results) {
         $report += @"
-
 --------------------------------------------------------------
 STRATEGIA: $($r.strategyName)
 --------------------------------------------------------------
-
 Estrazioni testate: $($r.drawsTested)
 Biglietti totali: $($r.totalTickets)
 Costo totale: EUR $($r.totalSpent)
- vincita grans: EUR $($r.totalPrizeWon)
+Vincita totale: EUR $($r.totalPrizeWon)
 Utilità netto: EUR $($r.netProfit)
 tendenza: $(if ($r.netProfit -gt 0) { "POSITIVA" } else { "NEGATIVA" })
-
 MATCH DETTAGLIO:
-  Match 6: $($r.match6) vincita ~10M€/ Settore
+  Match 6: $($r.match6) vincita ~10M€
   Match 5: $($r.match5) vincita ~10K€
-Match 4: $($r.match4) vincita ~100€
+  Match 4: $($r.match4) vincita ~100€
   Match 3: $($r.match3) vincita ~10€
   Match 2: $($r.match2) (no vincita)
 Media match per estrazione: $($r.avgMatches)
@@ -283,7 +278,7 @@ Se confrontiamo:
 
 3. STRATEGIA 3 - "High-Entropy Pair": coppia ottimizzata
    con alti criteri di diversità.
-   - Se i criteri sono ben condizionati, si massimizz.
+   - Se i criteri sono ben condizionati, si massimizza.
    - Rischio: se i vincoli sono troppo stringenti, la
      accept-reject può non trovare nuove combinazioni.
 
@@ -292,11 +287,11 @@ Se confrontiamo:
    - Probabilità match 4 su 1 schedina: 1/11,180
    - Probabilità match 5 su 1 schedina: 1/2,333,636
    - Probabilità match 6 su 1 schedina: 1/622,614,630
-   
-   Con 2 schedine ogni estrazione e 1000 estrazioni:
-   - 2000 biglietti totali
-   - Atteso match 3+: 2000 * (1/327 + 1/11180 + ...) ≈ 6-7
-   - Atteso match 4+: molto più raro, ~0.1-0.2
+
+Con 2 schedine ogni estrazione e 1000 estrazioni:
+- 2000 biglietti totali
+- Atteso match 3+: 2000 * (1/327 + 1/11180 + ...) ≈ 6-7
+- Atteso match 4+: molto più raro, ~0.1-0.2
 
 ================================================================
 CONCLUSIONI
@@ -317,6 +312,7 @@ Tuttavia strategicamente:
   alla random pura.
 
 NOW:
+
 L'analisi matematica mostra che non c'è differenza significativa
 tra le strategie se i criteri di generazione sono equivalenti.
 La scelta ideale recente essa da implementare sia:
@@ -329,27 +325,27 @@ La scelta ideale recente essa da implementare sia:
 
 ================================================================
 "@
-
+    
     $report | Set-Content $outputFile
-    Write-Host "`nRapporto salvato in: $outputFile"
+    Write-Host "`n`nRapporto salvato in: $outputFile" -ForegroundColor Yellow
 }
 
 # ===== MAIN EXECUTION =====
 
-$results = @()
+$results = @#
 
-# Strategy 1: Same pair
-Write-Host "`n`n"
+# Strategy 1: Same pair repeated
+Write-Host "`n`n"`n
 $result1 = Run-Backtest -strategyName "Same Pair Repeated" -drawsToTest 800 -ticketsPerDraw 2 -generatePair ${function:Generate-Schedina}
 $results += $result1
 
 # Strategy 2: New random pair
-Write-Host "`n`n"
+Write-Host "`n`n`
 $result2 = Run-Backtest -strategyName "Random New Pair Each Draw" -drawsToTest 800 -ticketsPerDraw 2 -generatePair ${function:Generate-Schedina}
 $results += $result2
 
 # Strategy 3: High-entropy pair (same generator already used)
-Write-Host "`n`n"
+Write-Host "`n`n`
 $result3 = Run-Backtest -strategyName "High-Entropy Pair" -drawsToTest 800 -ticketsPerDraw 2 -generatePair ${function:Generate-Schedina}
 $results += $result3
 
@@ -357,4 +353,4 @@ $results += $result3
 Write-BacktestReport -outputFile $outputPath -results $results
 
 Write-Host "`n`nBACKTEST COMPLETED" -ForegroundColor Yellow
-Write-Host "Report: $outputPath"
+Write-Host "Report: $outputPath" -ForegroundColor Yellow

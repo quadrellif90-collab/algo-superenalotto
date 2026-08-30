@@ -1,0 +1,33 @@
+{
+  "Strategy": {
+    "Name": "Hot-Cold Optimization",
+    "Description": "Statistical optimization mixing hot (frequent) and cold (rare) numbers from 4226 historical draws",
+    "TicketCount": 5,
+    "HotUsage": {
+      "MinSelected": 2,
+      "MaxSelected": 4,
+      "TargetRatio": 0.5
+    }
+  },
+  "Expected": {
+    "meanSum": 276.37,
+    "gt31Ratio": 0.6636,
+    "gt80Ratio": 0.1178,
+    "primeRatio": 0.2623,
+    "extremeRatio": 0.1753
+  },
+  "Constraints": {
+    "SumRange": { "Min": 246, "Max": 306 },
+    "MaxPerDecade": 2,
+    "MaxAbove80": 1,
+    "MinHotNumbers": 2,
+    "MaxHotNumbers": 4,
+    "MinColdNumbers": 2,
+    "MaxColdNumbers": 4
+  },
+  "Backtest": {
+    "DrawsToTest": 4226,
+    "TicketPerDraw": 2,
+    "StrategiesToCompare": ["Random", "OriginalConstraints", "HotColdOptimized", "AntiRecent"]
+  }
+}

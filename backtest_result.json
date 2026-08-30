@@ -1,13 +1,44 @@
-﻿{
-    "avgMatches":  0.036,
-    "match2":  17,
-    "match6":  0,
-    "drawsTested":  500,
-    "totalTickets":  500,
-    "match4":  0,
-    "match5":  0,
-    "netProfit":  -490,
-    "match3":  1,
-    "totalSpent":  500,
-    "totalPrizeWon":  10
-}
+﻿[
+    {
+        "drawsTested":  800,
+        "totalTickets":  1600,
+        "match2":  85,
+        "match3":  6,
+        "match4":  0,
+        "match5":  0,
+        "match6":  0,
+        "totalPrizeWon":  60,
+        "totalSpent":  1600,
+        "netProfit":  -1540,
+        "avgMatches":  0.1138,
+        "strategyName":  "Same Pair Repeated"
+    },
+    {
+        "drawsTested":  800,
+        "totalTickets":  1600,
+        "match2":  90,
+        "match3":  5,
+        "match4":  1,
+        "match5":  0,
+        "match6":  0,
+        "totalPrizeWon":  150,
+        "totalSpent":  1600,
+        "netProfit":  -1450,
+        "avgMatches":  0.12,
+        "strategyName":  "Random New Pair Each Draw"
+    },
+    {
+        "drawsTested":  800,
+        "totalTickets":  1600,
+        "match2":  73,
+        "match3":  4,
+        "match4":  1,
+        "match5":  0,
+        "match6":  0,
+        "totalPrizeWon":  140,
+        "totalSpent":  1600,
+        "netProfit":  -1460,
+        "avgMatches":  0.0975,
+        "strategyName":  "High-Entropy Pair"
+    }
+]

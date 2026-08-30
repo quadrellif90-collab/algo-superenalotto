@@ -1,139 +1,66 @@
-================================================================
+﻿================================================================
 SUPERENALOTTO - BACKTEST ANALISI STRATEGIE
-Generato: 29/08/2026 16:33
+Generato: 30/08/2026 08:48
 ================================================================
 
 DATASET: C:\Users\Siviglino\Desktop\Superenalotto\superenalotto.csv
-Estrazioni totali: 0
+Estrazioni totali: 4226
 ================================================================
-RISULTATI BACKTEST:
 
+RISULTATI BACKTEST:
 
 --------------------------------------------------------------
 STRATEGIA: Same Pair Repeated
 --------------------------------------------------------------
-
-Estrazioni testate: 0
-Biglietti totali: 0
-Costo totale: EUR 0
- vincita grans: EUR 0
-Utilità netto: EUR 0
-tendenza: NEGATIVA
-
+Estrazioni testate: 800
+Biglietti totali: 1600
+Costo totale: EUR 1600
+Vincita totale: EUR 60
+Utilita netto: EUR -1540
+Tendenza: NEGATIVA
 MATCH DETTAGLIO:
-  Match 6: 0 vincita ~10M€/ Settore
-  Match 5: 0 vincita ~10K€
-Match 4: 0 vincita ~100€
-  Match 3: 0 vincita ~10€
-  Match 2: 0 (no vincita)
-Media match per estrazione: 0
-
---------------------------------------------------------------
+  Match 6: 0
+  Match 5: 0
+  Match 4: 0
+  Match 3: 6
+  Match 2: 85
+Media match per estrazione: 0.1138--------------------------------------------------------------
 STRATEGIA: Random New Pair Each Draw
 --------------------------------------------------------------
-
-Estrazioni testate: 0
-Biglietti totali: 0
-Costo totale: EUR 0
- vincita grans: EUR 0
-Utilità netto: EUR 0
-tendenza: NEGATIVA
-
+Estrazioni testate: 800
+Biglietti totali: 1600
+Costo totale: EUR 1600
+Vincita totale: EUR 150
+Utilita netto: EUR -1450
+Tendenza: NEGATIVA
 MATCH DETTAGLIO:
-  Match 6: 0 vincita ~10M€/ Settore
-  Match 5: 0 vincita ~10K€
-Match 4: 0 vincita ~100€
-  Match 3: 0 vincita ~10€
-  Match 2: 0 (no vincita)
-Media match per estrazione: 0
-
---------------------------------------------------------------
+  Match 6: 0
+  Match 5: 0
+  Match 4: 1
+  Match 3: 5
+  Match 2: 90
+Media match per estrazione: 0.12--------------------------------------------------------------
 STRATEGIA: High-Entropy Pair
 --------------------------------------------------------------
-
-Estrazioni testate: 0
-Biglietti totali: 0
-Costo totale: EUR 0
- vincita grans: EUR 0
-Utilità netto: EUR 0
-tendenza: NEGATIVA
-
+Estrazioni testate: 800
+Biglietti totali: 1600
+Costo totale: EUR 1600
+Vincita totale: EUR 140
+Utilita netto: EUR -1460
+Tendenza: NEGATIVA
 MATCH DETTAGLIO:
-  Match 6: 0 vincita ~10M€/ Settore
-  Match 5: 0 vincita ~10K€
-Match 4: 0 vincita ~100€
-  Match 3: 0 vincita ~10€
-  Match 2: 0 (no vincita)
-Media match per estrazione: 0
-
+  Match 6: 0
+  Match 5: 0
+  Match 4: 1
+  Match 3: 4
+  Match 2: 73
+Media match per estrazione: 0.0975================================================================
+NOTE
 ================================================================
-ANALISI CONFRONTO
-================================================================
-
-Vittoria anch'io determinare che strategia rende maggiore
-rate di vittoria (match 3+, o match 4+):
-
-Se confrontiamo:
-
-1. STRATEGIA 1 - "Same Pair Repeated": stessa coppia 2 schedine
-   usate per tutto il periodo.
-   - PROBLEMA: se le 2 schedine non vincono mai, sono
-     sempre perdenti. La probabilità di match 3+ su una
-     singola schedina è 327:1. su 2 schedine, 163:1.
-   - Non c'è "riposo" dalla perdita - è scommessa infinita.
-
-2. STRATEGIA 2 - "Random New Pair Each Draw": nuova coppia
-   ogni estrazione.
-   - Vantaggio: diversificazione (diversi numeri)
-   - Svantaggio: ogni concorso è new, non costruzione
-     pattern.
-   - Matematicamente equiprobabile, non c'è differenza
-     con strategia 1 se i criteri generativi sono uguali.
-
-3. STRATEGIA 3 - "High-Entropy Pair": coppia ottimizzata
-   con alti criteri di diversità.
-   - Se i criteri sono ben condizionati, si massimizz.
-   - Rischio: se i vincoli sono troppo stringenti, la
-     accept-reject può non trovare nuove combinazioni.
-
-3. QUALITATIVE MATH:
-   - Probabilità match 3 su 1 schedina: 1/327,615
-   - Probabilità match 4 su 1 schedina: 1/11,180
-   - Probabilità match 5 su 1 schedina: 1/2,333,636
-   - Probabilità match 6 su 1 schedina: 1/622,614,630
-   
-   Con 2 schedine ogni estrazione e 1000 estrazioni:
-   - 2000 biglietti totali
-   - Atteso match 3+: 2000 * (1/327 + 1/11180 + ...) ≈ 6-7
-   - Atteso match 4+: molto più raro, ~0.1-0.2
-
-================================================================
-CONCLUSIONI
-================================================================
-
-La differenza tra strategie è minima dal punto di vista
-statistico perch la distribuzione di probabilità è la stessa.
-
-Tuttavia strategicamente:
-
-- IL GRADE STESSO SI RIPETE: può essere meglio se presente
-  un bias di "hot/cold" numbers, perch puoi riutilizzare
-  i numeri che statisticalmente compaiono.
-- NUOVO OGNI VOLTA: massimizza la diversità e riduce la
-  correlazione tra consecutive scommesse.
-- OTTIMIZZATO: se i criteri di generazione sono più stringenti
-  e ben calibrati, può teoricamente aumentare match 3+ rispetto
-  alla random pura.
-
-NOW:
-L'analisi matematica mostra che non c'è differenza significativa
-tra le strategie se i criteri di generazione sono equivalenti.
-La scelta ideale recente essa da implementare sia:
-
-1. MODELLO: usare sempre le stesse squadre che hanno statistics
-   migliori per quel periodo.
-2. RIUTILIZZO: appena match 3+ raggiunge, cambiare squadre per
-   ridurre la probabilità di "perso tutto".
-3. ATTESA: girare la board più volte per aumentare le probabilità.
-
+- Tutti i backtest usano 800 estrazioni (max disponibili)
+- 2 schedine per estrazione = 1600 biglietti totali per strategia
+- Premi: 6=10Mâ‚¬, 5=10Kâ‚¬, 4=100â‚¬, 3=10â‚¬, 2=0â‚¬
+- Strategia 1: stessa coppia ripetuta per tutto il periodo
+- Strategia 2: nuova coppia random ogni estrazione
+- Strategia 3: coppia generata con criteri high-entropy
 ================================================================

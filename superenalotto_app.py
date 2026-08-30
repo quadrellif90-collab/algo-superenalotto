@@ -16,7 +16,7 @@ class SuperenalottoApp:
         self.root.configure(bg="#1a1a2e")
 
         self.csv_path = "superenalotto.csv"
-        self.api_key = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+        self.api_key = self._load_api_key()
         self.tracking_path = "tracking.csv"
         self.records = []
         self.stats = {}
@@ -28,7 +28,17 @@ class SuperenalottoApp:
         self.update_stats_display()
         self.check_draw_day()
 
-    def setup_styles(self):
+    def _load_api_key(self):
+        """Load API key from config.json, fallback to hardcoded value if not found"""
+        config_path = "config.json"
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    return config.get("apiKey", "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d")
+            except:
+                pass
+        return "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
         style = ttk.Style()
         style.theme_use("clam")
         style.configure(

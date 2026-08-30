@@ -1,29 +1,39 @@
-# analisi_completa.ps1
-# PowerShell 5.1 - analisi statistica completa su superenalotto.csv
+# analisi_completa.ps1 - Analisi statistica completa su superenalotto.csv
+# PowerShell 5.1 - versione corretta con path relativi
 
 $ErrorActionPreference = "Stop"
 
-$csvPath = "C:\Users\Siviglino\Desktop\Superenalotto\superenalotto.csv"
-$outputPath = "C:\Users\Siviglino\Desktop\Superenalotto\analisi_completa.json"
+# Percorsi relativi
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$csvPath = Join-Path $scriptDir "superenalotto.csv"
+$outputPath = Join-Path $scriptDir "analisi_completa.json"
 
 # --- Caricamento dati ---
-$records = @()
+$records = [System.Collections.Generic.List[PSCustomObject]]@()
 $lines = Get-Content $csvPath -Encoding UTF8 | Select-Object -Skip 1
 foreach ($line in $lines) {
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
     $parts = $line -split ','
     if ($parts.Count -lt 9) { continue }
     try {
-        $nums = @([int]$parts[2], [int]$parts[3], [int]$parts[4],
-                   [int]$parts[5], [int]$parts[6], [int]$parts[7])
-        foreach ($n in $nums) {
-            if ($n -lt 1 -or $n -gt 90) { continue }
+        $n1 = [int]$parts[2]
+        $n2 = [int]$parts[3]
+        $n3 = [int]$parts[4]
+        $n4 = [int]$parts[5]
+        $n5 = [int]$parts[6]
+        $n6 = [int]$parts[7]
+        if ($n1 -lt 1 -or $n1 -gt 90 -or $n2 -lt 1 -or $n2 -gt 90 -or $n3 -lt 1 -or $n3 -gt 90 -or $n4 -lt 1 -or $n4 -gt 90 -or $n5 -lt 1 -or $n5 -gt 90 -or $n6 -lt 1 -or $n6 -gt 90) {
+            continue
         }
-        $jolly = [int]$parts[8]
+        $nums = @($n1, $n2, $n3, $n4, $n5, $n6)
+        $jolly = 0
+        if ($parts[8].Trim() -ne "") { $jolly = [int]$parts[8] }
         $star = 0
         if ($parts.Count -gt 9 -and $parts[9].Trim() -ne "") {
             $star = [int]$parts[9]
         }
-        $records += [PSCustomObject]@{
+        $sum = $n1 + $n2 + $n3 + $n4 + $n5 + $n6
+        $records.Add([PSCustomObject]@{
             Date  = [string]$parts[0]
             Conc  = [string]$parts[1]
             N1    = $nums[0]
@@ -33,16 +43,16 @@ foreach ($line in $lines) {
             N5    = $nums[4]
             N6    = $nums[5]
             Nums  = $nums
-            Sum   = ($nums | Measure-Object -Sum).Sum
+            Sum   = $sum
             Jolly = $jolly
             Star  = $star
-        }
+        })
     } catch {
         # salta righe malformate
     }
 }
 
-Write-Host "Caricati $($records.Count) record validi"
+Write-Host "Caricati $($records.Count) record validi" -ForegroundColor Cyan
 
 # --- Helper ---
 function Test-Prime([int]$n) {
@@ -55,9 +65,13 @@ function Test-Prime([int]$n) {
     return $true
 }
 
-# --- Calcolo metriche ---
-$sums      = $records | ForEach-Object { $_.Sum }
-$allNums   = $records | ForEach-Object { $_.Nums } | ForEach-Object { $_ }
+# --- Calcolo metriche (lavoro direttamente su $records.List) ---
+$sums      = @()
+$allNums   = [System.Collections.Generic.List[int]]@()
+foreach ($r in $records) {
+    $sums += $r.Sum
+    foreach ($nn in $r.Nums) { $allNums.Add($nn) }
+}
 $sumsSorted = $sums | Sort-Object
 $n         = $sumsSorted.Count
 $totalNums = $n * 6
@@ -75,12 +89,24 @@ $q3      = $sumsSorted[[int]($n * 0.75)]
 
 # Frequenze numeri
 $numFreq  = @{}
-foreach ($n in $allNums) { $numFreq[$n] = $numFreq[$n] + 1 }
+foreach ($nn in $allNums) {
+    if ($numFreq.ContainsKey($nn)) {
+        $numFreq[$nn]++
+    } else {
+        $numFreq[$nn] = 1
+    }
+}
 $topNums  = $numFreq.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 20
 
 # Frequenze somme
 $sumFreq  = @{}
-foreach ($s in $sums) { $sumFreq[$s] = $sumFreq[$s] + 1 }
+foreach ($s in $sums) {
+    if ($sumFreq.ContainsKey($s)) {
+        $sumFreq[$s]++
+    } else {
+        $sumFreq[$s] = 1
+    }
+}
 $topSums  = $sumFreq.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 10
 
 # Prime
@@ -101,22 +127,48 @@ $evenPct     = [Math]::Round($evenCount / $totalNums * 100, 2)
 
 # Cifra finale
 $finalDigit  = @{}
-foreach ($n in $allNums) { $finalDigit[$n % 10] = $finalDigit[$n % 10] + 1 }
+foreach ($nn in $allNums) {
+    $digit = $nn % 10
+    if ($finalDigit.ContainsKey($digit)) {
+        $finalDigit[$digit]++
+    } else {
+        $finalDigit[$digit] = 1
+    }
+}
 $finalDigitPct = @{}
-foreach ($d in 0..9) { $finalDigitPct[$d] = [Math]::Round($finalDigit[$d] / $totalNums * 100, 2) }
+foreach ($d in 0..9) {
+    $count = 0
+    if ($finalDigit.ContainsKey($d)) { $count = $finalDigit[$d] }
+    $finalDigitPct[[string]$d] = [Math]::Round($count / $totalNums * 100, 2)
+}
 
 # Decade
 $decadeDist  = @{}
-foreach ($n in $allNums) { $decadeDist[[Math]::Floor($n / 10)] = $decadeDist[[Math]::Floor($n / 10)] + 1 }
-$decadePct   = @{}
-foreach ($d in 0..8) { $decadePct[$d] = [Math]::Round($decadeDist[$d] / $totalNums * 100, 2) }
+foreach ($nn in $allNums) {
+    $dec = [int][Math]::Floor($nn / 10)
+    if ($decadeDist.ContainsKey($dec)) {
+        $decadeDist[$dec]++
+    } else {
+        $decadeDist[$dec] = 1
+    }
+}
+$decadePct = @{}
+foreach ($d in 0..9) {
+    $count = 0
+    if ($decadeDist.ContainsKey($d)) { $count = $decadeDist[$d] }
+    $decadePct[[string]$d] = [Math]::Round($count / $totalNums * 100, 2)
+}
 
 # Jolly
 $jollyFreq = @{}
 $jollyTotal = 0
 foreach ($r in $records) {
     if ($r.Jolly -gt 0) {
-        $jollyFreq[$r.Jolly] = $jollyFreq[$r.Jolly] + 1
+        if ($jollyFreq.ContainsKey($r.Jolly)) {
+            $jollyFreq[$r.Jolly]++
+        } else {
+            $jollyFreq[$r.Jolly] = 1
+        }
         $jollyTotal++
     }
 }
@@ -126,7 +178,11 @@ $starFreq = @{}
 $starTotal = 0
 foreach ($r in $records) {
     if ($r.Star -gt 0) {
-        $starFreq[$r.Star] = $starFreq[$r.Star] + 1
+        if ($starFreq.ContainsKey($r.Star)) {
+            $starFreq[$r.Star]++
+        } else {
+            $starFreq[$r.Star] = 1
+        }
         $starTotal++
     }
 }
@@ -134,32 +190,61 @@ foreach ($r in $records) {
 # Anno
 $yearDist = @{}
 foreach ($r in $records) {
-    $year = [int]$r.Date.Substring(0, 4)
-    $yearDist[$year] = $yearDist[$year] + 1
+    if ($r.Date.Length -ge 4) {
+        $year = [int]$r.Date.Substring(0, 4)
+        if ($yearDist.ContainsKey($year)) {
+            $yearDist[$year]++
+        } else {
+            $yearDist[$year] = 1
+        }
+    }
 }
 
-# --- Costruzione oggetto JSON ---
-# Converti hashtable con chiavi numeriche in oggetti con chiavi stringa per JSON
-$finalDigitPctObj = [PSCustomObject]([ordered]@{})
-foreach ($d in 0..9) { $finalDigitPctObj | Add-Member -NotePropertyName "$d" -NotePropertyValue $finalDigitPct[$d] }
+# --- Costruzione oggetti JSON-safe (chiavi sempre stringa) ---
+# Hot/Cold Numbers Analysis
+$hotThreshold = [Math]::Max(1, [int](($totalNums / 90) * 1.1))  # ~10% above average
+$coldThreshold = [Math]::Max(1, [int](($totalNums / 90) * 0.8))  # ~10% below average
 
-$decadePctObj = [PSCustomObject]([ordered]@{})
-foreach ($d in 0..8) { $decadePctObj | Add-Member -NotePropertyName "$d" -NotePropertyValue $decadePct[$d] }
+$hotColdObj = @{
+    hot = @($numFreq.GetEnumerator() | Where-Object { $_.Value -ge $hotThreshold } | ForEach-Object { [int]$_.Key } | Sort-Object)
+    cold = @($numFreq.GetEnumerator() | Where-Object { $_.Value -le $coldThreshold } | ForEach-Object { [int]$_.Key } | Sort-Object)
+    threshold = @{
+        average = [Math]::Round($totalNums / 90, 2)
+        hotMin = $hotThreshold
+        coldMax = $coldThreshold
+    }
+}
 
-$jollyFreqObj = [PSCustomObject]([ordered]@{})
-foreach ($kv in $jollyFreq.GetEnumerator()) { $jollyFreqObj | Add-Member -NotePropertyName "$($kv.Name)" -NotePropertyValue $kv.Value }
+# Decade Distribution (already computed above)
+$decadeDistSafe = @{}
+for ($d = 0; $d -le 9; $d++) {
+    $decadeDistSafe[[string]$d] = if ($decadeDist.ContainsKey($d)) { $decadeDist[$d] } else { 0 }
+}
 
-$starFreqObj = [PSCustomObject]([ordered]@{})
-foreach ($kv in $starFreq.GetEnumerator()) { $starFreqObj | Add-Member -NotePropertyName "$($kv.Name)" -NotePropertyValue $kv.Value }
+$jollyFreqObj = @{}
+foreach ($kv in $jollyFreq.GetEnumerator()) {
+    $jollyFreqObj[[string]$kv.Key] = $kv.Value
+}
 
-$yearDistObj = [PSCustomObject]([ordered]@{})
-foreach ($kv in $yearDist.GetEnumerator()) { $yearDistObj | Add-Member -NotePropertyName "$($kv.Name)" -NotePropertyValue $kv.Value }
+$starFreqObj = @{}
+foreach ($kv in $starFreq.GetEnumerator()) {
+    $starFreqObj[[string]$kv.Key] = $kv.Value
+}
 
-$topNumsObj = [PSCustomObject]([ordered]@{})
-foreach ($kv in $topNums) { $topNumsObj | Add-Member -NotePropertyName "$($kv.Name)" -NotePropertyValue $kv.Value }
+$yearDistObj = @{}
+foreach ($kv in $yearDist.GetEnumerator()) {
+    $yearDistObj[[string]$kv.Key] = $kv.Value
+}
 
-$topSumsObj = [PSCustomObject]([ordered]@{})
-foreach ($kv in $topSums) { $topSumsObj | Add-Member -NotePropertyName "$($kv.Name)" -NotePropertyValue $kv.Value }
+$topNumsObj = @{}
+foreach ($kv in $topNums) {
+    $topNumsObj[[string]$kv.Key] = $kv.Value
+}
+
+$topSumsObj = @{}
+foreach ($kv in $topSums) {
+    $topSumsObj[[string]$kv.Key] = $kv.Value
+}
 
 $analysis = [PSCustomObject]@{
     n                = $n
@@ -183,8 +268,8 @@ $analysis = [PSCustomObject]@{
     gt80Count        = $gt80Count
     evenCount        = $evenCount
     totalNumbers     = $totalNums
-    finalDigitPct    = $finalDigitPctObj
-    decadePct        = $decadePctObj
+    finalDigitPct    = $finalDigitPct
+    decadePct        = $decadePct
     topNumbers       = $topNumsObj
     topSums          = $topSumsObj
     jollyFreq        = $jollyFreqObj
@@ -192,8 +277,10 @@ $analysis = [PSCustomObject]@{
     jollyTotal       = $jollyTotal
     starTotal        = $starTotal
     yearDist         = $yearDistObj
+    hotCold          = $hotColdObj
+    decadeDist       = $decadeDistSafe
     firstDate        = $records[0].Date
-    lastDate         = $records[-1].Date
+    lastDate         = $records[$records.Count - 1].Date
 }
 
 $analysisJson = $analysis | ConvertTo-Json -Depth 5
@@ -201,51 +288,57 @@ Set-Content -Path $outputPath -Value $analysisJson -Encoding UTF8
 
 # --- Output formattato ---
 Write-Host "`n=== ANALISI COMPLETA - SUPERENALOTTO ===" -ForegroundColor Cyan
-Write-Host "Dataset: $n estrazioni ($($records[0].Date) - $($records[-1].Date))"
-Write-Host ""
-Write-Host "--- SOMME 6 NUMERI ---"
-Write-Host "Media: $($analysis.mean) | Mediana: $($analysis.median)"
-Write-Host "Std Dev: $($analysis.stddev)"
-Write-Host "Q1: $($analysis.q1) | Q3: $($analysis.q3)"
-Write-Host "Min: $($analysis.min) | Max: $($analysis.max) | Range: $($analysis.range) | IQR: $($analysis.iqr)"
-Write-Host ""
-Write-Host "--- NUMERI ---"
-Write-Host "Primi: ${analysis.primePct}% ($($analysis.primeCount) su $($analysis.totalNumbers))"
-Write-Host "Estremi (>75): ${analysis.extremePct}% ($($analysis.extremeCount) su $($analysis.totalNumbers))"
-Write-Host ">31: ${analysis.gt31Pct}% ($($analysis.gt31Count) su $($analysis.totalNumbers))"
-Write-Host ">80: ${analysis.gt80Pct}% ($($analysis.gt80Count) su $($analysis.totalNumbers))"
-Write-Host "Pari: ${analysis.evenPct}% ($($analysis.evenCount) su $($analysis.totalNumbers))"
-Write-Host ""
-Write-Host "--- CIFRA FINALE ---"
-foreach ($d in 0..9) { Write-Host "  Digit " $d ": " $analysis.finalDigitPct[$d] "%" }
-Write-Host ""
-Write-Host "--- DECADE ---"
-foreach ($d in 0..8) {
+Write-Host "Dataset: $n estrazioni ($($records[0].Date) - $($records[$records.Count - 1].Date))" -ForegroundColor White
+Write-Host "" -ForegroundColor White
+Write-Host "--- SOMME 6 NUMERI ---" -ForegroundColor Yellow
+Write-Host "Media: $($analysis.mean) | Mediana: $($analysis.median)" -ForegroundColor White
+Write-Host "Std Dev: $($analysis.stddev)" -ForegroundColor White
+Write-Host "Q1: $($analysis.q1) | Q3: $($analysis.q3)" -ForegroundColor White
+Write-Host "Min: $($analysis.min) | Max: $($analysis.max) | Range: $($analysis.range) | IQR: $($analysis.iqr)" -ForegroundColor White
+Write-Host "" -ForegroundColor White
+Write-Host "--- NUMERI ---" -ForegroundColor Yellow
+Write-Host "Primi: $($analysis.primePct)% ($($analysis.primeCount) su $($analysis.totalNumbers))" -ForegroundColor White
+Write-Host "Estremi (>75): $($analysis.extremePct)% ($($analysis.extremeCount) su $($analysis.totalNumbers))" -ForegroundColor White
+Write-Host ">31: $($analysis.gt31Pct)% ($($analysis.gt31Count) su $($analysis.totalNumbers))" -ForegroundColor White
+Write-Host ">80: $($analysis.gt80Pct)% ($($analysis.gt80Count) su $($analysis.totalNumbers))" -ForegroundColor White
+Write-Host "Pari: $($analysis.evenPct)% ($($analysis.evenCount) su $($analysis.totalNumbers))" -ForegroundColor White
+Write-Host "" -ForegroundColor White
+Write-Host "--- CIFRA FINALE ---" -ForegroundColor Yellow
+foreach ($d in 0..9) {
+    $key = [string]$d
+    Write-Host "  Digit $d : $($analysis.finalDigitPct[$key])%" -ForegroundColor White
+}
+Write-Host "" -ForegroundColor White
+Write-Host "--- DECADE ---" -ForegroundColor Yellow
+foreach ($d in 0..9) {
     $start = $d * 10 + 1
     $end   = $start + 9
-    Write-Host "  " $start "-" $end ": " $analysis.decadePct[$d] "%"
+    if ($d -eq 0) { $start = 1; $end = 9 }
+    if ($d -eq 9) { $start = 81; $end = 90 }
+    $key = [string]$d
+    Write-Host "  $start-$end : $($analysis.decadePct[$key])%" -ForegroundColor White
 }
-Write-Host ""
-Write-Host "--- TOP 20 NUMERI PIU FREQUENTI ---"
+Write-Host "" -ForegroundColor White
+Write-Host "--- TOP 20 NUMERI PIU FREQUENTI ---" -ForegroundColor Yellow
 foreach ($num in $topNums) {
     $numPct = [Math]::Round($num.Value / $totalNums * 100, 2)
-    Write-Host "  Numero " $num.Name ": " $num.Value " volte (" $numPct "%)"
+    Write-Host "  Numero $($num.Key): $($num.Value) volte ($($numPct)%)" -ForegroundColor White
 }
-Write-Host ""
-Write-Host "--- TOP 10 SOMME PIU FREQUENTI ---"
-foreach ($sum in $topSums) { Write-Host "  Somma $($sum.Name): $($sum.Value) volte" }
-Write-Host ""
-Write-Host "--- JOLLY (totale: $($analysis.jollyTotal)) ---"
+Write-Host "" -ForegroundColor White
+Write-Host "--- TOP 10 SOMME PIU FREQUENTI ---" -ForegroundColor Yellow
+foreach ($sum in $topSums) { Write-Host "  Somma $($sum.Key): $($sum.Value) volte" -ForegroundColor White }
+Write-Host "" -ForegroundColor White
+Write-Host "--- JOLLY (totale: $($analysis.jollyTotal)) ---" -ForegroundColor Yellow
 $jollySorted = $jollyFreq.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 10
-foreach ($j in $jollySorted) { Write-Host "  Jolly $($j.Name): $($j.Value) volte" }
-Write-Host ""
-Write-Host "--- SUPERSTAR (totale: $($analysis.starTotal)) ---"
+foreach ($j in $jollySorted) { Write-Host "  Jolly $($j.Key): $($j.Value) volte" -ForegroundColor White }
+Write-Host "" -ForegroundColor White
+Write-Host "--- SUPERSTAR (totale: $($analysis.starTotal)) ---" -ForegroundColor Yellow
 $starSorted = $starFreq.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 10
-foreach ($s in $starSorted) { Write-Host "  Superstar $($s.Name): $($s.Value) volte" }
-Write-Host ""
-Write-Host "--- DISTRIBUZIONE ANNI ---"
-foreach ($y in $yearDist.GetEnumerator() | Sort-Object Name) {
-    Write-Host "  Year $($y.Key): $($y.Value) estrazioni"
+foreach ($s in $starSorted) { Write-Host "  Superstar $($s.Key): $($s.Value) volte" -ForegroundColor White }
+Write-Host "" -ForegroundColor White
+Write-Host "--- DISTRIBUZIONE ANNI ---" -ForegroundColor Yellow
+foreach ($y in $yearDist.GetEnumerator() | Sort-Object Key) {
+    Write-Host "  Year $($y.Key): $($y.Value) estrazioni" -ForegroundColor White
 }
-Write-Host ""
+Write-Host "" -ForegroundColor White
 Write-Host "Analisi salvata in: $outputPath" -ForegroundColor Yellow

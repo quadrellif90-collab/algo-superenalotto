@@ -1,8 +1,22 @@
+# sniper.ps1 - Sniper Protocol Daily v3 (CORRETTO)
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$csvPath = Join-Path $scriptDir "superenalotto.csv"
+$trackingPath = Join-Path $scriptDir "tracking.csv"
+$configPath = Join-Path $scriptDir "config.json"
+
+# Carica configurazione da file o usa default
 $apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
 $lotteryId = 712
-$csvPath = "C:\Users\Siviglino\Desktop\Superenalotto\superenalotto.csv"
-$trackingPath = "C:\Users\Siviglino\Desktop\Superenalotto\tracking.csv"
 $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
+
+if (Test-Path $configPath) {
+    try {
+        $jsonConfig = Get-Content $configPath -Raw | ConvertFrom-Json
+        if ($jsonConfig.apiKey) { $apiKey = $jsonConfig.apiKey }
+        if ($jsonConfig.lotteryId) { $lotteryId = $jsonConfig.lotteryId }
+        if ($jsonConfig.apiUrl) { $apiUrl = $jsonConfig.apiUrl }
+    } catch { Write-Host "Warning: config.json parsing failed, using defaults" }
+}
 
 $today = Get-Date -Format "yyyy-MM-dd"
 $dayOfWeekName = (Get-Date).DayOfWeek
@@ -23,7 +37,7 @@ if ($dayOfWeekName -notin $drawDays) {
 Write-Host "[1] Fetching jackpot..." -ForegroundColor Green
 try {
     $headers = @{ "X-API-KEY" = $apiKey }
-    $response = Invoke-RestMethod -Uri "$apiUrl?lottery_id=$lotteryId" -Headers $headers -TimeoutSec 10
+    $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 10 -ErrorAction Stop
     $latestResult = $response.results[0]
     $jackpot = $latestResult.jackpot
     $lastDrawDate = $latestResult.draw_date
@@ -36,7 +50,9 @@ try {
     Write-Host "  Jackpot: EUR $jackpot" -ForegroundColor Yellow
 } catch {
     Write-Host "  ERRORE API: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  Usando CSV locale..." -ForegroundColor Yellow
     $jackpot = 0
+    $lastDrawDate = ""
 }
 
 $budgetDaily = 2.00
@@ -54,20 +70,30 @@ if ($jackpot -ge 100000000) {
 Write-Host ""
 Write-Host "[2] Generazione numeri..." -ForegroundColor Green
 
+# Carica dati dal CSV
 $csvContent = Get-Content $csvPath
 $records = @()
 foreach ($line in ($csvContent | Select-Object -Skip 1)) {
     $parts = $line -split ','
-    if ($parts.Count -ge 7) {
-        $nums = @([int]$parts[2], [int]$parts[3], [int]$parts[4], [int]$parts[5], [int]$parts[6], [int]$parts[7])
-        $sum = ($nums | Measure-Object -Sum).Sum
-        $records += [PSCustomObject]@{
-            Date = $parts[0]
-            N1 = $nums[0]; N2 = $nums[1]; N3 = $nums[2]
-            N4 = $nums[3]; N5 = $nums[4]; N6 = $nums[5]
-            Sum = $sum
-        }
+    if ($parts.Count -ge 9) {
+        try {
+            $nums = @([int]$parts[2], [int]$parts[3], [int]$parts[4], 
+                       [int]$parts[5], [int]$parts[6], [int]$parts[7])
+            if ($nums.All({$_ -ge 1 -and $_ -le 90})) {
+                $records += [PSCustomObject]@{
+                    Date = $parts[0]
+                    N1 = $nums[0]; N2 = $nums[1]; N3 = $nums[2]
+                    N4 = $nums[3]; N5 = $nums[4]; N6 = $nums[5]
+                    Sum = ($nums | Measure-Object -Sum).Sum
+                }
+            }
+        } catch {}
     }
+}
+
+if ($records.Count -eq 0) {
+    Write-Host "ERRORE: Nessun record nel CSV" -ForegroundColor Red
+    exit 1
 }
 
 $sums = $records | Select-Object -ExpandProperty Sum
@@ -75,15 +101,23 @@ $mean = ($sums | Measure-Object -Average).Average
 $targetLow = [int]($mean - 30)
 $targetHigh = [int]($mean + 30)
 
+Write-Host "  Media: $([math]::Round($mean, 1))" -ForegroundColor Gray
+Write-Host "  Target somma: $targetLow - $targetHigh" -ForegroundColor Gray
+Write-Host ""
+
 $generatedSchedine = @()
-for ($s = 0; $s -lt $numSchedine; $s++) {
-    $attempts = 0
-    do {
+
+# Funzione generazione
+function Generate-Schedina-Internal {
+    param($mean, $targetLow, $targetHigh)
+    
+    for ($attempts = 0; $attempts -lt 1000; $attempts++) {
         $nums = @()
         while ($nums.Count -lt 6) {
             $n = Get-Random -Minimum 1 -Maximum 91
             if ($n -notin $nums) { $nums += $n }
         }
+        $nums = $nums | Sort-Object
         $sum = ($nums | Measure-Object -Sum).Sum
         
         $decades = @{}
@@ -92,36 +126,45 @@ for ($s = 0; $s -lt $numSchedine; $s++) {
             $decades[$d] = ++$decades[$d]
         }
         $maxDecade = ($decades.Values | Measure-Object -Maximum).Maximum
+        $veryHigh = ($nums | Where-Object { $_ -gt 80 }).Count
         
-        $highCount = ($nums | Where-Object { $_ -gt 31 }).Count
-        $veryHighCount = ($nums | Where-Object { $_ -gt 80 }).Count
+        $valid = ($sum -ge $targetLow -and $sum -le $targetHigh) -and 
+                 ($maxDecade -le 2) -and 
+                 ($veryHigh -le 1)
         
-        $valid = ($sum -ge $targetLow -and $sum -le $targetHigh) -and ($maxDecade -le 2) -and ($veryHighCount -le 1)
-        $attempts++
-    } while (-not $valid -and $attempts -lt 1000)
-    
-    if ($valid) {
-        $sortedNums = $nums | Sort-Object
+        if ($valid) {
+            return @{
+                Nums = $nums
+                Sum = $sum
+            }
+        }
+    }
+    return $null
+}
+
+# Generazione schedine
+for ($s = 0; $s -lt $numSchedine; $s++) {
+    $result = Generate-Schedina-Internal -mean $mean -targetLow $targetLow -targetHigh $targetHigh
+    if ($result) {
         $generatedSchedine += [PSCustomObject]@{
             Schedina = $s + 1
-            Numeri = $sortedNums -join '-'
-            Somma = $sum
+            Numeri = ($result.Nums -join '-')
+            Somma = $result.Sum
+            Nums = $result.Nums
         }
     }
 }
 
-Write-Host "  Target somma: $targetLow - $targetHigh (media: $([math]::Round($mean, 0)))"
-Write-Host ""
+Write-Host "[3] Schedine generate:" -ForegroundColor Green
 foreach ($sched in $generatedSchedine) {
-    Write-Host "  SCHEDINA $($sched.Schedina): $($sched.Numeri) [somma: $($sched.Somma)]" -ForegroundColor Cyan
+    $color = if ($sched.Somma -ge 240 -and $sched.Somma -le 320) { "Cyan" } else { "Red" }
+    Write-Host "  SCHEDINA $($sched.Schedina): $($sched.Numeri) [somma: $($sched.Somma)]" -ForegroundColor $color
 }
 
 Write-Host ""
-Write-Host "[3] Prossime estrazioni:" -ForegroundColor Green
-$drawDaysMap = @{
-    "Sunday" = 0; "Monday" = 0; "Tuesday" = 1; "Wednesday" = 0
-    "Thursday" = 1; "Friday" = 1; "Saturday" = 1
-}
+Write-Host "[4] Prossime estrazioni:" -ForegroundColor Green
+$drawDaysMap = @{ 'Sunday' = 0; 'Monday' = 0; 'Tuesday' = 1; 'Wednesday' = 0
+                  'Thursday' = 1; 'Friday' = 1; 'Saturday' = 1 }
 $drawDayNames = @("Tuesday", "Thursday", "Friday", "Saturday")
 $todayDow = $dayOfWeekName.ToString()
 $todayIdx = $drawDayNames.IndexOf($todayDow)
@@ -145,17 +188,40 @@ if ($generatedSchedine.Count -gt 0) {
     Write-Host "  ISTRUZIONI DI GIOCATA" -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  Gioca $($generatedSchedine.Count) schedina/e per un totale di EUR $($generatedSchedine.Count).00" -ForegroundColor White
-    Write-Host "  Jackpot attuale: EUR $jackpot" -ForegroundColor White
+    Write-Host "  Jackpot attuale: EUR $([math]::Round($jackpot / 1000000, 1))M" -ForegroundColor White
     Write-Host "========================================" -ForegroundColor Cyan
     
+    # Inizializza tracking se necessario
     if (-not (Test-Path $trackingPath)) {
-        "data,giornata,budget_speso,schede,numeri,somma,jackpot" | Out-File -FilePath $trackingPath -Encoding UTF8
+        "data,giornata,budget,schedine,numeri,somma,jackpot,verificato" | Out-File -FilePath $trackingPath -Encoding UTF8
     }
     
-    $numsStr = $generatedSchedine.Numeri -join ";"
-    $trackingLine = "$today,$dayOfWeekName,$($generatedSchedine.Count).00,$($generatedSchedine.Count),$numsStr,$($generatedSchedine[0].Somma),$jackpot"
-    Add-Content -Path $trackingPath -Value $trackingLine
+    # Aggiungi al tracking
+    foreach ($sched in $generatedSchedine) {
+        $trackingLine = "$today,$dayOfWeekName,1.00,1,$($sched.Numeri),$($sched.Somma),$jackpot,no"
+        Add-Content -Path $trackingPath -Value $trackingLine
+    }
     Write-Host "  Tracking aggiornato." -ForegroundColor Gray
+    
+    # Aggiorna contatore giornaliero
+    $todayDate = Get-Date -Format "yyyy-MM-dd"
+    $dailyLines = @()
+    if (Test-Path $dailyLimitPath) { $dailyLines = Get-Content $dailyLimitPath -Encoding UTF8 }
+    $found = $false
+    $newDailyLines = @()
+    foreach ($line in $dailyLines) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split ','
+        if ($parts[0] -eq $todayDate) {
+            $count = 1
+            if ($parts.Count -ge 2) { [void][int]::TryParse($parts[1], [ref]$count); $count++ }
+            $newDailyLines += "$todayDate,$count"
+            $found = $true
+        } else { $newDailyLines += $line }
+    }
+    if (-not $found) { $newDailyLines += "$todayDate,1" }
+    $newDailyLines | Out-File -FilePath $dailyLimitPath -Encoding UTF8
+    
 } else {
     Write-Host "  ERRORE: Impossibile generare schedine valide" -ForegroundColor Red
 }

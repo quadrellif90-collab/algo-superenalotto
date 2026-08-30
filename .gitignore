@@ -1,0 +1,35 @@
+# Generated files
+*.pyc
+__pycache__/
+*.log
+backtest_full_log.txt
+
+# Sensitive files
+config.json
+.env
+*.key
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# PowerShell
+*.ps1.bak
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Excel/CSV temporanei
+*.xlsx
+~$*.csv
+~$*.xlsx

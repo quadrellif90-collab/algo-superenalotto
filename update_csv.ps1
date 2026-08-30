@@ -1,11 +1,12 @@
+# update_csv.ps1 - Update CSV from API v3 (CORRETTO)
 $jsonPath = "C:\Users\Siviglino\Desktop\Superenalotto\all_results.json"
 $csvPath = "C:\Users\Siviglino\Desktop\Superenalotto\superenalotto.csv"
 
 $allResults = Get-Content $jsonPath -Raw | ConvertFrom-Json
 $results = $allResults.results
 
-Write-Host "Estrazioni API recenti: $($results.Count)"
-Write-Host ""
+Write-Host "Estrazioni API recenti: $($results.Count)" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor White
 
 $newLines = @()
 foreach ($r in $results) {
@@ -21,24 +22,24 @@ foreach ($r in $results) {
 
 $csvContent = Get-Content $csvPath
 $lastDate = ($csvContent[-1] -split ',')[0]
-Write-Host "Ultima data nel CSV: $lastDate"
+Write-Host "Ultima data nel CSV: $lastDate" -ForegroundColor White
 
 $toAdd = $newLines | Where-Object { ($_ -split ',')[0] -gt $lastDate }
-Write-Host "Estrazioni da aggiungere: $($toAdd.Count)"
+Write-Host "Estrazioni da aggiungere: $($toAdd.Count)" -ForegroundColor White
 
 if ($toAdd.Count -gt 0) {
-    Write-Host ""
-    Write-Host "Nuove estrazioni:"
+    Write-Host "" -ForegroundColor White
+    Write-Host "Nuove estrazioni:" -ForegroundColor Cyan
     foreach ($line in $toAdd) {
-        Write-Host "  $line"
+        Write-Host "  $line" -ForegroundColor White
     }
     
     $toAdd | ForEach-Object { Add-Content -Path $csvPath -Value $_ }
-    Write-Host ""
-    Write-Host "CSV aggiornato con $($toAdd.Count) nuove estrazioni!"
+    Write-Host "" -ForegroundColor White
+    Write-Host "CSV aggiornato con $($toAdd.Count) nuove estrazioni!" -ForegroundColor Green
     
     $newCount = (Get-Content $csvPath).Count - 1
-    Write-Host "Nuovo totale: $newCount estrazioni"
+    Write-Host "Nuovo totale: $newCount estrazioni" -ForegroundColor White
 } else {
-    Write-Host "Nessuna nuova estrazione da aggiungere."
+    Write-Host "Nessuna nuova estrazione da aggiungere." -ForegroundColor Yellow
 }
