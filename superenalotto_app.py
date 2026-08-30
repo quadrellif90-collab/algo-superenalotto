@@ -390,6 +390,31 @@ class SuperenalottoApp:
             font=("Segoe UI", 9),
             activebackground=self.C_GREEN_DK,
         ).pack(side="left", padx=4)
+        tk.Button(
+            btn_frame,
+            text="Valuta Algoritmi",
+            command=self.evaluate_and_show,
+            bg=self.C_GREEN,
+            fg="white",
+            font=("Segoe UI", 9),
+            activebackground=self.C_GREEN_DK,
+        ).pack(side="left", padx=4)
+
+    def evaluate_and_show(self):
+        """Ricalcola ROI rolling su ultime 50 estrazioni e mostra la classifica."""
+        perf, best = self._best_auto(50)
+        res = perf.get("results", {})
+        lines = [f"Classifica ROI - ultime {perf.get('window',50)} estrazioni:", ""]
+        ranked = sorted(res.items(), key=lambda kv: kv[1]["roi"], reverse=True)
+        for i, (name, r) in enumerate(ranked, 1):
+            star = " <-- AUTO" if name == best else ""
+            lines.append(
+                f"{i}. {name}: ROI {r['roi']}% | M2:{r['m2']} M3:{r['m3']} M4:{r['m4']} | "
+                f"net €{r['net']}{star}"
+            )
+        lines.append("")
+        lines.append("Auto userà il #1 finché la finestra non cambia.")
+        messagebox.showinfo("Valutazione Algoritmi", "\n".join(lines))
 
     def _on_resize(self, event=None):
         # ricalcola scrollregion e larghezza contenuto
@@ -685,6 +710,79 @@ class SuperenalottoApp:
         "AntiRecent": {"fn": "_anti_recent", "roi": 24.0},
     }
 
+    def eval_all_strategies(self, n_draws=50):
+        """Calcola ROI rolling sulle ultime N estrazioni reali per ogni algoritmo.
+        Ritorna dict {nome: {roi, m2, m3, m4, net}}. Usa 1 schedina/estrazione."""
+        if len(self.records) < n_draws:
+            n_draws = len(self.records)
+        window = self.records[-n_draws:]
+        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        results = {}
+        for name, cfg in self.STRATEGIES.items():
+            fn = getattr(self, cfg["fn"])
+            spent = 0
+            won = 0
+            m2 = m3 = m4 = 0
+            # per ogni estrazione della finestra: genera 1 schedina, verifica
+            for rec in window:
+                nums = fn()
+                spent += 1  # 1 euro a schedina
+                matches = len(set(nums) & set(rec["nums"]))
+                if matches >= 2:
+                    p = premi.get(matches, 0)
+                    won += p
+                    if matches == 2:
+                        m2 += 1
+                    elif matches == 3:
+                        m3 += 1
+                    elif matches >= 4:
+                        m4 += 1
+            roi = (won / spent * 100) if spent else 0
+            results[name] = {
+                "roi": round(roi, 2),
+                "spent": spent,
+                "won": won,
+                "net": won - spent,
+                "m2": m2,
+                "m3": m3,
+                "m4": m4,
+            }
+        return results
+
+    def _load_performance(self):
+        try:
+            with open("algo_performance.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
+
+    def _best_auto(self, n_draws=50):
+        """Sceglie il miglior algoritmo sulla finestra rolling.
+        Ricalcola se non c'e' un file o e' vecchio (>1 giorno)."""
+        perf = self._load_performance()
+        need_recalc = True
+        if perf.get("date") == datetime.now().strftime("%Y-%m-%d") and perf.get("results"):
+            # gia calcolato oggi: usa quello (ma la finestra puo cambiare se
+            # c'e' una nuova estrazione rispetto a ieri -> ricontrolla n_draws)
+            need_recalc = False
+        if need_recalc:
+            results = self.eval_all_strategies(n_draws)
+            best = max(results, key=lambda k: results[k]["roi"])
+            perf = {
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "window": n_draws,
+                "best": best,
+                "results": results,
+            }
+            try:
+                with open("algo_performance.json", "w", encoding="utf-8") as f:
+                    json.dump(perf, f, indent=2)
+            except:
+                pass
+        else:
+            best = perf.get("best", "QuartileSpread")
+        return perf, best
+
     def generate_optimal_dual(self):
         """Genera 1-5 schedine con l'algoritmo selezionato, UNA SOLA VOLTA."""
         if not self.stats:
@@ -693,8 +791,11 @@ class SuperenalottoApp:
 
         sel = self.algo_var.get()
         if sel == "Auto (migliore)":
-            # sceglie la strategia col ROI piu alto disponibile
-            sel = max(self.STRATEGIES, key=lambda k: self.STRATEGIES[k]["roi"])
+            perf, sel = self._best_auto()
+            roi_info = perf.get("results", {}).get(sel, {})
+            roi_str = f" (ROI {roi_info.get('roi',0)}% su {perf.get('window',50)} draw)"
+        else:
+            roi_str = ""
 
         strategy = self.STRATEGIES.get(sel)
         if not strategy:
@@ -708,7 +809,7 @@ class SuperenalottoApp:
             q = fn()
             self.generated_numbers.append({"nums": q, "sum": sum(q)})
 
-        self.status_label.config(text=f"{sel} | {n_schedine} schedine")
+        self.status_label.config(text=f"{sel}{roi_str} | {n_schedine} schedine")
         self.display_generated_numbers()
         self.save_to_tracking()
 
