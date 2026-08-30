@@ -176,12 +176,20 @@ class SuperenalottoApp:
         frame.pack(fill="x", padx=10, pady=10)
 
         tk.Label(
-            frame, text="Jackpot:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
+            frame, text="Jackpot in palio:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
         ).grid(row=0, column=0, sticky="w")
         self.jackpot_label = tk.Label(
             frame, text="€0", bg="#16213e", fg="#ffcc00", font=("Segoe UI", 11, "bold")
         )
         self.jackpot_label.grid(row=0, column=1, sticky="w", padx=10)
+
+        tk.Label(
+            frame, text="Ultimo montepremi:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
+        ).grid(row=1, column=0, sticky="w")
+        self.last_prize_label = tk.Label(
+            frame, text="€0", bg="#16213e", fg="#00d9ff", font=("Segoe UI", 10)
+        )
+        self.last_prize_label.grid(row=1, column=1, sticky="w", padx=10)
 
         # Selettore numero schedine (1-5)
         tk.Label(
@@ -725,9 +733,9 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
             data_str = datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
         except:
             pass
-        # aggiorna jackpot label
+        # aggiorna jackpot label (in palio, da config) e ultimo montepremi (da API)
         if jp > 0:
-            self.jackpot_label.config(text=f"€{jp:,.0f}")
+            self.last_prize_label.config(text=f"€{jp:,.0f}")
         # append to CSV if not already present
         exists = any(r["data"] == data_str for r in self.records)
         if not exists:
@@ -741,48 +749,31 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
                 "Dati aggiornati",
                 f"Estrazione {data_str} aggiunta.\n"
                 f"Numeri: {'-'.join(map(str, numeri))}  Jolly: {jolly}\n"
-                f"Jackpot (ultima): €{jp:,.0f}",
+                f"Ultimo montepremi: €{jp:,.0f}",
             )
         else:
-            # aggiorna solo jackpot
+            # estrazione già presente: aggiorna ultimo montepremi da API
             if jp > 0:
-                self.jackpot_label.config(text=f"€{jp:,.0f}")
+                self.last_prize_label.config(text=f"€{jp:,.0f}")
             messagebox.showinfo(
                 "Già presente",
-                f"Estrazione {data_str} già nel database.\nJackpot: €{jp:,.0f}",
+                f"Estrazione {data_str} già nel database.\nUltimo montepremi: €{jp:,.0f}",
             )
 
     def update_jackpot(self):
-        """Prova a leggere il jackpot da un endpoint configurato; se assente usa il valore in config.json."""
+        """Jackpot in palio = valore in config.json['jackpot'] (aggiornato manualmente
+        dall'utente, perché l'API non espone il jackpot accumulato milionario)."""
         cfg = {}
         try:
             with open("config.json", "r", encoding="utf-8") as f:
                 cfg = json.load(f)
         except:
             pass
-        jp = cfg.get("jackpot", 0)
-        url = cfg.get("jackpotUrl", "")
-        if url:
-            try:
-                import urllib.request, ssl
-
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=12, context=ctx) as r:
-                    txt = r.read().decode("utf-8", "ignore")
-                import re
-
-                m = re.search(r"(?:€|euro)\s?([\d.]+)", txt, re.I)
-                if m:
-                    jp = float(m.group(1).replace(".", ""))
-            except:
-                pass
-        if jp:
+        jp = float(cfg.get("jackpot", 0) or 0)
+        if jp > 0:
             self.jackpot_label.config(text=f"€{jp:,.0f}")
         else:
-            self.jackpot_label.config(text="€0 (API non configurata)")
+            self.jackpot_label.config(text="€0 (imposta in config.json)")
 
 def main():
     root = tk.Tk()
