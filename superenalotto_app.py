@@ -9,11 +9,23 @@ from collections import Counter
 
 
 class SuperenalottoApp:
+    # Palette stile superenalotto.com
+    C_BG = "#f5f5f5"
+    C_RED = "#E3120B"
+    C_RED_DK = "#B00D08"
+    C_DARK = "#1a1a1a"
+    C_CARD = "#ffffff"
+    C_ACCENT = "#ffd200"
+    C_GREEN = "#1a8f3c"
+    C_TEXT = "#222222"
+    C_MUTED = "#777777"
+
     def __init__(self, root):
         self.root = root
-        self.root.title("SuperEnalotto - Protocollo Sniper")
-        self.root.geometry("900x700")
-        self.root.configure(bg="#1a1a2e")
+        self.root.title("SuperEnalotto - Verifica e Genera")
+        self.root.geometry("920x760")
+        self.root.configure(bg=self.C_BG)
+        self.root.minsize(820, 680)
 
         self.csv_path = "superenalotto.csv"
         self.api_key = self._load_api_key()
@@ -82,40 +94,39 @@ class SuperenalottoApp:
         )
 
     def create_widgets(self):
-        title_frame = tk.Frame(self.root, bg="#1a1a2e")
-        title_frame.pack(fill="x", padx=20, pady=10)
+        # === HEADER stile superenalotto.com (rosso) ===
+        title_frame = tk.Frame(self.root, bg=self.C_RED, height=70)
+        title_frame.pack(fill="x")
+        title_frame.pack_propagate(False)
         tk.Label(
             title_frame,
             text="SUPERENALOTTO",
-            bg="#1a1a2e",
-            fg="#00d9ff",
-            font=("Segoe UI", 24, "bold"),
-        ).pack()
-        tk.Label(
-            title_frame,
-            text="Protocollo Sniper Quantitativo",
-            bg="#1a1a2e",
-            fg="#e94560",
-            font=("Segoe UI", 12),
-        ).pack()
-
+            bg=self.C_RED,
+            fg="white",
+            font=("Segoe UI", 26, "bold"),
+        ).pack(side="left", padx=20, pady=12)
         self.status_label = tk.Label(
-            title_frame, text="", bg="#1a1a2e", fg="#00ff88", font=("Segoe UI", 10)
+            title_frame,
+            text="",
+            bg=self.C_RED,
+            fg="#ffe000",
+            font=("Segoe UI", 11, "bold"),
         )
-        self.status_label.pack(pady=5)
+        self.status_label.pack(side="right", padx=20, pady=12)
 
-        main_frame = tk.Frame(self.root, bg="#1a1a2e")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        main_frame = tk.Frame(self.root, bg=self.C_BG)
+        main_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
-        left_frame = tk.Frame(main_frame, bg="#16213e", width=400)
-        left_frame.pack(side="left", fill="both", padx=(0, 10))
+        left_frame = tk.Frame(main_frame, bg=self.C_BG, width=380)
+        left_frame.pack(side="left", fill="both", padx=(0, 8))
         left_frame.pack_propagate(False)
 
-        right_frame = tk.Frame(main_frame, bg="#16213e")
+        right_frame = tk.Frame(main_frame, bg=self.C_BG)
         right_frame.pack(side="right", fill="both", expand=True)
 
         self.create_stats_section(left_frame)
         self.create_generator_section(right_frame)
+        self.create_prizes_section(right_frame)
         self.create_results_section(right_frame)
         self.create_tracking_section(right_frame)
 
@@ -123,13 +134,13 @@ class SuperenalottoApp:
         frame = tk.LabelFrame(
             parent,
             text="STATISTICHE",
-            bg="#16213e",
-            fg="#00d9ff",
+            bg=self.C_CARD,
+            fg=self.C_RED,
             font=("Segoe UI", 11, "bold"),
             padx=10,
             pady=10,
         )
-        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        frame.pack(fill="x", padx=5, pady=5)
 
         self.stats_labels = {}
         stats = [
@@ -150,13 +161,13 @@ class SuperenalottoApp:
             row = i // 2
             col = (i % 2) * 2
             tk.Label(
-                frame, text=f"{name}:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
+                frame, text=f"{name}:", bg=self.C_CARD, fg=self.C_MUTED, font=("Segoe UI", 9)
             ).grid(row=row, column=col, sticky="w", padx=5, pady=2)
             self.stats_labels[name] = tk.Label(
                 frame,
                 text="-",
-                bg="#16213e",
-                fg="#00d9ff",
+                bg=self.C_CARD,
+                fg=self.C_RED,
                 font=("Segoe UI", 9, "bold"),
             )
             self.stats_labels[name].grid(
@@ -176,78 +187,78 @@ class SuperenalottoApp:
         frame.pack(fill="x", padx=10, pady=10)
 
         tk.Label(
-            frame, text="Jackpot in palio:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
+            frame, text="Jackpot in palio:", bg=self.C_CARD, fg=self.C_MUTED, font=("Segoe UI", 9)
         ).grid(row=0, column=0, sticky="w")
         self.jackpot_label = tk.Label(
-            frame, text="€0", bg="#16213e", fg="#ffcc00", font=("Segoe UI", 11, "bold")
+            frame, text="€0", bg=self.C_CARD, fg=self.C_RED, font=("Segoe UI", 13, "bold")
         )
         self.jackpot_label.grid(row=0, column=1, sticky="w", padx=10)
 
         tk.Label(
-            frame, text="Ultimo montepremi:", bg="#16213e", fg="#888888", font=("Segoe UI", 9)
+            frame, text="Ultimo montepremi:", bg=self.C_CARD, fg=self.C_MUTED, font=("Segoe UI", 9)
         ).grid(row=1, column=0, sticky="w")
         self.last_prize_label = tk.Label(
-            frame, text="€0", bg="#16213e", fg="#00d9ff", font=("Segoe UI", 10)
+            frame, text="€0", bg=self.C_CARD, fg=self.C_TEXT, font=("Segoe UI", 10)
         )
         self.last_prize_label.grid(row=1, column=1, sticky="w", padx=10)
 
         # Selettore numero schedine (1-5)
         tk.Label(
             frame, text="Schedine da generare:",
-            bg="#16213e", fg="#888888", font=("Segoe UI", 9),
-        ).grid(row=1, column=0, sticky="w", padx=5, pady=2)
+            bg=self.C_CARD, fg=self.C_MUTED, font=("Segoe UI", 9),
+        ).grid(row=2, column=0, sticky="w", padx=5, pady=4)
         self.schedine_var = tk.IntVar(value=2)
         self.schedine_spin = tk.Spinbox(
             frame, from_=1, to=5, width=5,
             textvariable=self.schedine_var,
-            bg="#1a1a2e", fg="#00ff88", font=("Segoe UI", 10, "bold"),
+            bg="#fff", fg=self.C_RED, font=("Segoe UI", 11, "bold"),
             state="readonly",
         )
-        self.schedine_spin.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        self.schedine_spin.grid(row=2, column=1, sticky="w", padx=5, pady=4)
 
         tk.Button(
             frame,
-            text="Genera Schedine (QuartileSpread)",
+            text="GENERA SCHEDINE",
             command=self.generate_optimal_dual,
-            bg="#00ff88",
-            fg="#1a1a2e",
-            font=("Segoe UI", 11, "bold"),
-            activebackground="#88ffcc",
+            bg=self.C_RED,
+            fg="white",
+            font=("Segoe UI", 12, "bold"),
+            activebackground=self.C_RED_DK,
             padx=20,
-            pady=5,
-        ).grid(row=2, column=0, columnspan=2, pady=15)
+            pady=6,
+        ).grid(row=3, column=0, columnspan=2, pady=12, sticky="ew")
 
         tk.Label(
             frame,
-            text="Strategia: 1 numero per quartile (1-22/23-45/46-67/68-90)\n+ somma 246-306, max 2/decade, max 1 numero>80\nMiglior ROI backtest 4226 draw: 35.73%",
-            bg="#16213e",
-            fg="#666666",
+            text="Strategia QuartileSpread: 1 numero per quartile (1-22/23-45/46-67/68-90)\n+ somma 246-306, max 2/decade, max 1 numero>80\nMiglior ROI backtest 4226 estrazioni: 35.73%",
+            bg=self.C_CARD,
+            fg=self.C_MUTED,
             font=("Segoe UI", 8),
             justify="left",
-        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
 
         tk.Label(
             frame,
             text="Schedine generate:",
-            bg="#16213e",
-            fg="#888888",
+            bg=self.C_CARD,
+            fg=self.C_MUTED,
             font=("Segoe UI", 9),
-        ).grid(row=4, column=0, sticky="w")
+        ).grid(row=5, column=0, sticky="w")
 
-        self.numbers_frame = tk.Frame(frame, bg="#16213e")
-        self.numbers_frame.grid(row=5, column=0, columnspan=2, sticky="ew", pady=5)
+        self.numbers_frame = tk.Frame(frame, bg=self.C_CARD)
+        self.numbers_frame.grid(row=6, column=0, columnspan=2, sticky="ew", pady=5)
 
     def create_results_section(self, parent):
         frame = tk.LabelFrame(
             parent,
             text="ESTRAZIONI RECENTI",
-            bg="#16213e",
-            fg="#00d9ff",
+            bg=self.C_CARD,
+            fg=self.C_RED,
             font=("Segoe UI", 11, "bold"),
             padx=10,
             pady=10,
         )
-        frame.pack(fill="both", expand=True, padx=10, pady=10)
+        frame.pack(fill="both", expand=True, padx=10, pady=5)
 
         cols = ("Data", "N1", "N2", "N3", "N4", "N5", "N6", "Jolly", "Star")
         self.results_tree = ttk.Treeview(frame, columns=cols, show="headings", height=8)
@@ -267,58 +278,63 @@ class SuperenalottoApp:
     def create_tracking_section(self, parent):
         frame = tk.LabelFrame(
             parent,
-            text="TRACKING",
-            bg="#16213e",
-            fg="#00d9ff",
+            text="AZIONI",
+            bg=self.C_CARD,
+            fg=self.C_RED,
             font=("Segoe UI", 11, "bold"),
             padx=10,
             pady=10,
         )
-        frame.pack(fill="x", padx=10, pady=10)
+        frame.pack(fill="x", padx=10, pady=5)
 
-        btn_frame = tk.Frame(frame, bg="#16213e")
+        btn_frame = tk.Frame(frame, bg=self.C_CARD)
         btn_frame.pack()
 
         tk.Button(
             btn_frame,
             text="Aggiorna CSV",
             command=self.update_csv,
-            bg="#0f3460",
+            bg=self.C_RED,
             fg="white",
             font=("Segoe UI", 9),
-        ).pack(side="left", padx=5)
+            activebackground=self.C_RED_DK,
+        ).pack(side="left", padx=4)
         tk.Button(
             btn_frame,
             text="Scarica Dati API",
             command=self.fetch_latest_draw,
-            bg="#0f3460",
+            bg=self.C_RED,
             fg="white",
             font=("Segoe UI", 9),
-        ).pack(side="left", padx=5)
+            activebackground=self.C_RED_DK,
+        ).pack(side="left", padx=4)
         tk.Button(
             btn_frame,
             text="Agg. Jackpot",
             command=self.update_jackpot,
-            bg="#0f3460",
+            bg=self.C_RED,
             fg="white",
             font=("Segoe UI", 9),
-        ).pack(side="left", padx=5)
+            activebackground=self.C_RED_DK,
+        ).pack(side="left", padx=4)
         tk.Button(
             btn_frame,
             text="Esporta Report",
             command=self.export_report,
-            bg="#0f3460",
+            bg=self.C_RED,
             fg="white",
             font=("Segoe UI", 9),
-        ).pack(side="left", padx=5)
+            activebackground=self.C_RED_DK,
+        ).pack(side="left", padx=4)
         tk.Button(
             btn_frame,
             text="Verifica Vince",
             command=self.check_win,
-            bg="#0f3460",
+            bg=self.C_RED,
             fg="white",
-            font=("Segoe UI", 9),
-        ).pack(side="left", padx=5)
+            font=("Segoe UI", 9, "bold"),
+            activebackground=self.C_RED_DK,
+        ).pack(side="left", padx=4)
 
     def load_data(self):
         if not os.path.exists(self.csv_path):
@@ -761,8 +777,13 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
             )
 
     def update_jackpot(self):
-        """Jackpot in palio = valore in config.json['jackpot'] (aggiornato manualmente
-        dall'utente, perché l'API non espone il jackpot accumulato milionario)."""
+        """Jackpot in palio: scraping LIVE da superenalotto.com (funzionante).
+        Fallback su config.json['jackpot'] se lo scraping fallisce."""
+        live = self._scrape_jackpot()
+        if live and live > 0:
+            self.jackpot_label.config(text=f"€{live:,.0f}")
+            return
+        # fallback config
         cfg = {}
         try:
             with open("config.json", "r", encoding="utf-8") as f:
@@ -773,7 +794,84 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         if jp > 0:
             self.jackpot_label.config(text=f"€{jp:,.0f}")
         else:
-            self.jackpot_label.config(text="€0 (imposta in config.json)")
+            self.jackpot_label.config(text="€0 (offline)")
+
+    def _scrape_jackpot(self):
+        """Estrae il jackpot da superenalotto.com (<div class=JackpotValueNumber>)."""
+        try:
+            import urllib.request, re, ssl
+
+            # NOTE: TLS verification disabled intentionally — public site cert;
+            # read-only public data, no secrets in transit.
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(
+                "https://www.superenalotto.com",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            html = urllib.request.urlopen(req, timeout=12, context=ctx).read().decode(
+                "utf-8", "ignore"
+            )
+            m = re.search(r"JackpotValueNumber\">([\d.]+)", html)
+            if m:
+                return float(m.group(1).replace(".", ""))
+        except:
+            pass
+        return None
+
+    def create_prizes_section(self, parent):
+        """Tabella probabilità/premi stile superenalotto.com."""
+        frame = tk.LabelFrame(
+            parent,
+            text="PREMI E PROBABILITÀ",
+            bg=self.C_CARD,
+            fg=self.C_RED,
+            font=("Segoe UI", 11, "bold"),
+            padx=10,
+            pady=10,
+        )
+        frame.pack(fill="x", padx=10, pady=10)
+
+        # intestazione
+        hdr = ["Categoria", "Premio", "Probabilità (1 su)"]
+        for c, h in enumerate(hdr):
+            tk.Label(
+                frame,
+                text=h,
+                bg=self.C_RED,
+                fg="white",
+                font=("Segoe UI", 9, "bold"),
+                padx=6,
+                pady=3,
+            ).grid(row=0, column=c, sticky="ew")
+        rows = [
+            ("6", "Jackpot", "622.614.630"),
+            ("5 + Jolly", "Variabile", "103.769.105"),
+            ("5", "Variabile", "2.333.636"),
+            ("4", "Variabile", "11.907"),
+            ("3", "€10*", "327"),
+            ("2", "€5*", "22"),
+        ]
+        for i, (cat, prize, odds) in enumerate(rows, start=1):
+            bg = self.C_CARD if i % 2 else "#f0f0f0"
+            tk.Label(
+                frame, text=cat, bg=bg, fg=self.C_TEXT, font=("Segoe UI", 9), padx=6, pady=3
+            ).grid(row=i, column=0, sticky="ew")
+            tk.Label(
+                frame, text=prize, bg=bg, fg=self.C_GREEN, font=("Segoe UI", 9, "bold"), padx=6, pady=3
+            ).grid(row=i, column=1, sticky="ew")
+            tk.Label(
+                frame, text=odds, bg=bg, fg=self.C_MUTED, font=("Segoe UI", 9), padx=6, pady=3
+            ).grid(row=i, column=2, sticky="ew")
+        tk.Label(
+            frame,
+            text="* Importi indicativi. Jackpot e premi superiori variano.",
+            bg=self.C_CARD,
+            fg=self.C_MUTED,
+            font=("Segoe UI", 8),
+            justify="left",
+        ).grid(row=len(rows) + 1, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
 def main():
     root = tk.Tk()
