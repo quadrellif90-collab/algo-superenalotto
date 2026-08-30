@@ -1,0 +1,12 @@
+Draws: 4226
+Pools: QS=600 QS+NoConsec=600
+
+--- SINGOLE (1 biglietto) ---
+  QuartileSpread : Net -2986 | M2:192 M3:18 M4:1 | ROI 29.34%
+  QuartileSpreadNoConsec : Net -3141 | M2:191 M3:13 M4:0 | ROI 25.67%
+
+--- DUALI (2 biglietti) ---
+
+BEST SINGLE: QuartileSpread (Net -2986, ROI 29.34%)
+BEST DUAL:  QuartileSpread x2 (Net -5972, ROI 29.34%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\ultima_prova.json

@@ -1,0 +1,35 @@
+﻿{
+    "signature":  {
+                      "modalQ":  3,
+                      "maxGapRange":  [
+                                          15,
+                                          48
+                                      ],
+                      "modalLD":  5,
+                      "modalM4":  3,
+                      "minGapRange":  [
+                                          1,
+                                          6
+                                      ],
+                      "consec":  0,
+                      "modalD":  5
+                  },
+    "backtestDual":  {
+                         "m4":  0,
+                         "roi":  28.28,
+                         "won":  2390,
+                         "net":  -6062,
+                         "spent":  8452,
+                         "m3":  26,
+                         "m2":  426
+                     },
+    "backtestSingle":  {
+                           "m4":  1,
+                           "roi":  29.34,
+                           "won":  1240,
+                           "net":  -2986,
+                           "spent":  4226,
+                           "m3":  13,
+                           "m2":  202
+                       }
+}

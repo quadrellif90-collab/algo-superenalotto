@@ -196,27 +196,24 @@ class SuperenalottoApp:
 
         tk.Button(
             frame,
-            text="Genera Numeri",
-            command=self.generate_numbers,
-            bg="#e94560",
-            fg="white",
+            text="Genera Schedine (QuartileSpread)",
+            command=self.generate_optimal_dual,
+            bg="#00ff88",
+            fg="#1a1a2e",
             font=("Segoe UI", 11, "bold"),
-            activebackground="#ff6b6b",
+            activebackground="#88ffcc",
             padx=20,
             pady=5,
         ).grid(row=2, column=0, columnspan=2, pady=15)
 
-        tk.Button(
+        tk.Label(
             frame,
-            text="Genera Dual Ottimale (ROI 35%)",
-            command=self.generate_optimal_dual,
-            bg="#00ff88",
-            fg="#1a1a2e",
-            font=("Segoe UI", 10, "bold"),
-            activebackground="#88ffcc",
-            padx=20,
-            pady=5,
-        ).grid(row=3, column=0, columnspan=2, pady=5)
+            text="Strategia: 1 numero per quartile (1-22/23-45/46-67/68-90)\n+ somma 246-306, max 2/decade, max 1 numero>80\nMiglior ROI backtest 4226 draw: 35.73%",
+            bg="#16213e",
+            fg="#666666",
+            font=("Segoe UI", 8),
+            justify="left",
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=2)
 
         tk.Label(
             frame,
@@ -472,42 +469,6 @@ class SuperenalottoApp:
         for _ in range(n_schedine):
             q = self._quartile_spread()
             self.generated_numbers.append({"nums": q, "sum": sum(q)})
-
-        self.display_generated_numbers()
-        self.save_to_tracking()
-
-    def generate_numbers(self):
-        if not self.stats:
-            messagebox.showwarning("Attenzione", "Carica prima i dati!")
-            return
-
-        n_schedine = max(1, min(5, int(self.schedine_var.get())))
-        mean = self.stats["mean"]
-        target_low = int(mean - 30)
-        target_high = int(mean + 30)
-
-        self.generated_numbers = []
-
-        for schedina_num in range(1, n_schedine + 1):
-            attempts = 0
-            while attempts < 1000:
-                nums = sorted(random.sample(range(1, 91), 6))
-                sum_nums = sum(nums)
-
-                decades = Counter(n // 10 for n in nums)
-                max_decade_count = max(decades.values()) if decades else 0
-
-                very_high = sum(1 for n in nums if n > 80)
-
-                if (
-                    target_low <= sum_nums <= target_high
-                    and max_decade_count <= 2
-                    and very_high <= 1
-                ):
-                    self.generated_numbers.append({"nums": nums, "sum": sum_nums})
-                    break
-
-                attempts += 1
 
         self.display_generated_numbers()
         self.save_to_tracking()

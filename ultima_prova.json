@@ -1,0 +1,54 @@
+﻿{
+    "single":  {
+                   "QuartileSpreadNoConsec":  {
+                                                  "m4":  0,
+                                                  "m3":  13,
+                                                  "net":  -3141,
+                                                  "m2":  191,
+                                                  "roi":  25.67
+                                              },
+                   "QuartileSpread":  {
+                                          "m4":  1,
+                                          "m3":  18,
+                                          "net":  -2986,
+                                          "m2":  192,
+                                          "roi":  29.34
+                                      }
+               },
+    "bestSingle":  "QuartileSpread",
+    "dual":  {
+                 "QuartileSpreadNoConsec x2":  {
+                                                   "m4":  0,
+                                                   "roi":  25.67,
+                                                   "m3":  26,
+                                                   "net":  -6282,
+                                                   "spent":  8452,
+                                                   "won":  2170,
+                                                   "m2":  382
+                                               },
+                 "QuartileSpread x2":  {
+                                           "m4":  2,
+                                           "roi":  29.34,
+                                           "m3":  36,
+                                           "net":  -5972,
+                                           "spent":  8452,
+                                           "won":  2480,
+                                           "m2":  384
+                                       },
+                 "QuartileSpread + QuartileSpreadNoConsec":  {
+                                                                 "m4":  1,
+                                                                 "roi":  27.51,
+                                                                 "m3":  31,
+                                                                 "net":  -6127,
+                                                                 "spent":  8452,
+                                                                 "won":  2325,
+                                                                 "m2":  383
+                                                             }
+             },
+    "bestDual":  "QuartileSpread x2",
+    "metadata":  {
+                     "dualCount":  3,
+                     "singleCount":  2,
+                     "draws":  4226
+                 }
+}

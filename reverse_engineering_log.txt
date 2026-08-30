@@ -1,0 +1,21 @@
+Draws: 4226
+Estrazione features dalle estrazioni reali...
+FIRMA STRUTTURALE (moda estrazioni reali):
+  QuartileCov >= 3 | DecadeCov >= 5 | LastDigitDistinct >= 5
+  Mod3Spread >= 3 | Mod4Spread >= 3 | ConsecPairs = 0
+  MinGap in [1,6] | MaxGap in [15,48]
+  Even count modal: 3 | >80 modal: 0
+
+Confronto reale vs random (somma 246-306), feature singole:
+  Reale  ConsecPairs=0: 70,5% | Random: 74,8%
+  Reale  Even=3:        31,9% | Random: 30,2%
+  Reale  >80 = 0:       45,7% | Random: 47,7%
+  Reale  QuartileCov>=3:92,5% | Random: 95,5%
+  Reale  DecadeCov>=5:  61,5% | Random: 68,2%
+  Reale  Mod4Spread>=3: 92,2% | Random: 91,6%
+  Reale  LastDigit>=5:  65,7% | Random: 64,7%
+
+=== BACKTEST (firma strutturale da tutto lo storico 4226 draw) ===
+  Empirical SINGLE (1 ticket): Net -2986 | M2:202 M3:13 M4:1 | ROI 29.34%
+  Empirical DUAL   (2 ticket): Net -6062 | M2:426 M3:26 M4:0 | ROI 28.28%
+Saved C:\Users\Siviglino\Desktop\Superenalotto\reverse_engineering.json
