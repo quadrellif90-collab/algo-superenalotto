@@ -657,79 +657,100 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         message += f"\nVincita totale stimata: €{tot_win}"
         messagebox.showinfo("Verifica Vincita", message)
 
-    # ===== INTEGRAZIONE API (endpoint configurabile in config.json) =====
+    # ===== INTEGRAZIONE API lotteryresultsfeed.com =====
+    API_BASE = "https://www.lotteryresultsfeed.com/api/lottery/lotteries"
+
     def fetch_latest_draw(self):
-        """Scarica l'ultima estrazione via API (url in config.json['apiUrl']).
-        Formato JSON atteso: {data, numeri[6], jolly, star, jackpot}.
-        Se non configurato o fallisce, mostra istruzioni."""
+        """Scarica l'ultima estrazione SuperEnalotto da lotteryresultsfeed.com.
+        Endpoint: GET /lotteries?country=it  (campo results_latest[lottery_id=712]).
+        Auth: Bearer token (apiKey in config.json)."""
         cfg = {}
         try:
             with open("config.json", "r", encoding="utf-8") as f:
                 cfg = json.load(f)
         except:
             pass
-        api_url = cfg.get("apiUrl", "")
-        if not api_url:
+        api_key = cfg.get("apiKey", "")
+        if not api_key or api_key == "[REDACTED]":
             messagebox.showinfo(
                 "API non configurata",
-                "Inserisci 'apiUrl' in config.json per scaricare i dati automaticamente.\n\n"
-                "Formato JSON atteso dall'endpoint:\n"
-                "{\n  \"data\": \"GG/MM/AAAA\",\n  \"numeri\": [n1..n6],\n  "
-                "\"jolly\": n,\n  \"star\": n,\n  \"jackpot\": importo\n}\n\n"
-                "Oppure usa il bottone 'Aggiorna CSV' (richiede lo script PowerShell).",
+                "Inserisci la tua 'apiKey' in config.json per scaricare i dati.\n"
+                "Source: lotteryresultsfeed.com (Bearer token).",
             )
             return
         try:
             import urllib.request
             import ssl
 
-            # NOTE: TLS verification disabled intentionally — many public lottery
-            # endpoints use expired/self-signed certs; this is read-only scraping
-            # of non-sensitive public data from a desktop app, not auth traffic.
+            # NOTE: TLS verification disabled intentionally — public lottery API
+            # uses certs that fail strict check; read-only public data, no auth secrets in transit.
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
+            url = f"{self.API_BASE}?country=it"
             req = urllib.request.Request(
-                api_url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
             )
-            with urllib.request.urlopen(req, timeout=12, context=ctx) as r:
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
                 data = json.loads(r.read().decode("utf-8", "ignore"))
-            self._apply_draw_data(data)
+            se = next(
+                (l for l in data.get("lotteries", []) if l.get("id") == 712),
+                None,
+            )
+            if not se:
+                messagebox.showerror("Errore", "SuperEnalotto non trovato nella risposta.")
+                return
+            self._apply_draw_data(se.get("results_latest", {}), jackpot=se.get("jackpot"))
         except Exception as e:
             messagebox.showerror("Errore API", f"Impossibile scaricare i dati:\n{str(e)[:200]}")
 
-    def _apply_draw_data(self, data):
+    def _apply_draw_data(self, data, jackpot=None):
         """Normalizza il JSON dell'API e aggiorna CSV + jackpot + verificatore."""
-        numeri = [int(x) for x in data.get("numeri", data.get("numbers", []))]
+        numeri = [int(x) for x in data.get("balls", data.get("numeri", []))]
         if len(numeri) != 6:
             messagebox.showerror("Dati non validi", "L'API non ha restituito 6 numeri.")
             return
-        jolly = int(data.get("jolly", 0) or 0)
+        bonus = data.get("ball_bonus", [])
+        jolly = int(bonus[0]) if bonus else 0
         star = int(data.get("star", 0) or 0)
-        jackpot = float(data.get("jackpot", 0) or 0)
-        data_str = str(data.get("data", datetime.now().strftime("%d/%m/%Y")))
+        jp = float(jackpot if jackpot is not None else data.get("jackpot", 0) or 0)
+        data_str = str(data.get("draw_date", datetime.now().strftime("%d/%m/%Y")))
+        # lotteryresultsfeed usa YYYY-MM-DD
+        try:
+            data_str = datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except:
+            pass
         # aggiorna jackpot label
-        if jackpot > 0:
-            self.jackpot_label.config(text=f"€{jackpot:,.0f}")
+        if jp > 0:
+            self.jackpot_label.config(text=f"€{jp:,.0f}")
         # append to CSV if not already present
         exists = any(r["data"] == data_str for r in self.records)
         if not exists:
             with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
                 w = csv.writer(f)
-                w.writerow(
-                    [data_str, "", "1.00", "1"]
-                    + numeri
-                    + [jolly, star]
-                )
+                w.writerow([data_str, "", "1.00", "1"] + numeri + [jolly, star])
             self.load_data()
             self.update_stats_display()
             self.update_results_display()
             messagebox.showinfo(
                 "Dati aggiornati",
-                f"Estrazione {data_str} aggiunta.\nJackpot: €{jackpot:,.0f}",
+                f"Estrazione {data_str} aggiunta.\n"
+                f"Numeri: {'-'.join(map(str, numeri))}  Jolly: {jolly}\n"
+                f"Jackpot (ultima): €{jp:,.0f}",
             )
         else:
-            messagebox.showinfo("Già presente", f"Estrazione {data_str} già nel database.")
+            # aggiorna solo jackpot
+            if jp > 0:
+                self.jackpot_label.config(text=f"€{jp:,.0f}")
+            messagebox.showinfo(
+                "Già presente",
+                f"Estrazione {data_str} già nel database.\nJackpot: €{jp:,.0f}",
+            )
 
     def update_jackpot(self):
         """Prova a leggere il jackpot da un endpoint configurato; se assente usa il valore in config.json."""

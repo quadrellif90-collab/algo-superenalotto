@@ -1,8 +1,0 @@
-{
-    "lotteryId": 712,
-    "apiKey": "[REDACTED]",
-    "apiUrl": "",
-    "jackpotUrl": "",
-    "jackpot": 0,
-    "apiFormatNote": "Endpoint JSON atteso da apiUrl: {data:'GG/MM/AAAA', numeri:[n1..n6], jolly:n, star:n, jackpot:importo}"
-}
