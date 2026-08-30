@@ -1,0 +1,39 @@
+
+========================================
+SUPERENALOTTO - REPORT
+Generato: 30/08/2026 15:15
+========================================
+
+DATI STORICI
+Estrazioni analizzate: 7
+Periodo: 29/08/2026 - 29/08/2026
+
+STATISTICHE SOMMA
+Media: 284.00
+Mediana: 284
+Std Dev: 0.00
+Q1: 284
+Q3: 284
+Range: 284 - 284
+
+DISTRIBUZIONE NUMERI
+Primi: 33.33%
+Estremi (76-90): 16.67%
+>31: 66.67%
+>80: 0.00%
+
+ULTIME 10 ESTRAZIONI
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+29/08/2026: 12 17 45 59 74 77
+
+========================================
+NOTE OPERATIVE
+Target somma: 254 - 314
+Fascia ottimale: 260-299 (36.65% estrazioni)
+Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
+========================================

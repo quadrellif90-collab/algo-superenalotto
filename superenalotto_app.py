@@ -321,35 +321,41 @@ class SuperenalottoApp:
             reader = csv.reader(f)
             next(reader)
             for row in reader:
-                if len(row) >= 11:
+                if len(row) < 9:
+                    continue
+                try:
+                    # Il CSV ha formati misti:
+                    #  A) data, concorso, n1..n6, jolly, star
+                    #  B) data, '', prezzo, concorso, n1..n6, jolly, star
+                    # Prova A, fallback B.
                     try:
-                        # colonne: data, , prezzo, concorso, n1..n6, jolly, star
-                        nums = [
-                            int(row[4]),
-                            int(row[5]),
-                            int(row[6]),
-                            int(row[7]),
-                            int(row[8]),
-                            int(row[9]),
-                        ]
-                        data_raw = row[0]
-                        try:
-                            data_norm = datetime.strptime(
-                                data_raw, "%Y-%m-%d"
-                            ).strftime("%d/%m/%Y")
-                        except:
-                            data_norm = data_raw
-                        self.records.append(
-                            {
-                                "data": data_norm,
-                                "nums": nums,
-                                "sum": sum(nums),
-                                "jolly": int(row[10]) if len(row) > 10 and row[10] else 0,
-                                "star": int(row[11]) if len(row) > 11 and row[11] else 0,
-                            }
-                        )
+                        nums = [int(row[2]), int(row[3]), int(row[4]),
+                                int(row[5]), int(row[6]), int(row[7])]
+                        jolly = int(row[8]) if row[8] else 0
+                        star = int(row[9]) if len(row) > 9 and row[9] else 0
                     except:
-                        continue
+                        nums = [int(row[4]), int(row[5]), int(row[6]),
+                                int(row[7]), int(row[8]), int(row[9])]
+                        jolly = int(row[10]) if len(row) > 10 and row[10] else 0
+                        star = int(row[11]) if len(row) > 11 and row[11] else 0
+                    data_raw = row[0]
+                    try:
+                        data_norm = datetime.strptime(
+                            data_raw, "%Y-%m-%d"
+                        ).strftime("%d/%m/%Y")
+                    except:
+                        data_norm = data_raw
+                    self.records.append(
+                        {
+                            "data": data_norm,
+                            "nums": nums,
+                            "sum": sum(nums),
+                            "jolly": jolly,
+                            "star": star,
+                        }
+                    )
+                except:
+                    continue
 
         self.calculate_stats()
         self.update_results_display()
@@ -634,11 +640,22 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
 ========================================
 """
 
-        filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
+        # chiedi dove salvare (default Desktop)
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+        default = os.path.join(desktop, f"report_superenalotto_{datetime.now().strftime('%Y%m%d_%H%M')}.txt")
+        filename = filedialog.asksaveasfilename(
+            title="Salva report SuperEnalotto",
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            initialdir=desktop,
+            initialfile=os.path.basename(default),
+        )
+        if not filename:
+            return  # annullato
         with open(filename, "w", encoding="utf-8") as f:
             f.write(report)
 
-        messagebox.showinfo("Report", f"Report salvato in: {filename}")
+        messagebox.showinfo("Report", f"Report salvato in:\n{filename}")
 
     def check_win(self):
         if not self.generated_numbers:
@@ -810,7 +827,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         if not exists:
             with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
                 w = csv.writer(f)
-                w.writerow([data_str, "", "1.00", "1"] + numeri + [jolly, star] + [0])
+                w.writerow([data_str, "", ""] + numeri + [jolly, star])
             self.load_data()
             self.update_stats_display()
             self.update_results_display()
