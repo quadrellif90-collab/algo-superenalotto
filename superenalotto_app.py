@@ -44,6 +44,11 @@ class SuperenalottoApp:
         self.fetch_latest_draw()
         # autoridimensionamento fluido
         self.root.bind("<Configure>", self._on_resize)
+        # icona app (verde stile SuperEnalotto)
+        try:
+            self.root.iconbitmap("icon.ico")
+        except:
+            pass
 
     def _load_api_key(self):
         """Load API key from config.json, fallback to hardcoded value if not found"""
