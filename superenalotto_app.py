@@ -25,6 +25,7 @@ class SuperenalottoApp:
         self.setup_styles()
         self.create_widgets()
         self.load_data()
+        self.update_jackpot()
         self.update_stats_display()
         self.check_draw_day()
 
@@ -274,6 +275,22 @@ class SuperenalottoApp:
             btn_frame,
             text="Aggiorna CSV",
             command=self.update_csv,
+            bg="#0f3460",
+            fg="white",
+            font=("Segoe UI", 9),
+        ).pack(side="left", padx=5)
+        tk.Button(
+            btn_frame,
+            text="Scarica Dati API",
+            command=self.fetch_latest_draw,
+            bg="#0f3460",
+            fg="white",
+            font=("Segoe UI", 9),
+        ).pack(side="left", padx=5)
+        tk.Button(
+            btn_frame,
+            text="Agg. Jackpot",
+            command=self.update_jackpot,
             bg="#0f3460",
             fg="white",
             font=("Segoe UI", 9),
@@ -618,17 +635,133 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
             return
 
         last_draw = self.records[-1]["nums"]
+        jolly = self.records[-1].get("jolly", 0)
+        star = self.records[-1].get("star", 0)
+        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
         message = (
-            f"Ultima estrazione: {' '.join(str(n) for n in sorted(last_draw))}\n\n"
+            f"Ultima estrazione: {' '.join(str(n) for n in sorted(last_draw))}"
+            f"  Jolly:{jolly}  Star:{star}\n\n"
         )
         message += "I tuoi numeri:\n"
-
+        tot_win = 0
         for i, sched in enumerate(self.generated_numbers):
             matches = len(set(sched["nums"]) & set(last_draw))
-            message += f"Schedina {i + 1}: {matches} numeri indovinati\n"
-
+            jolly_hit = 1 if jolly and jolly in sched["nums"] else 0
+            premio = premi.get(matches, 0)
+            tot_win += premio
+            detail = f"  (Jolly +{jolly_hit})" if jolly_hit else ""
+            message += (
+                f"Schedina {i + 1}: {matches} numeri indovinati"
+                f" -> {'€' + str(premio) if premio else 'nessuna vincita'}{detail}\n"
+            )
+        message += f"\nVincita totale stimata: €{tot_win}"
         messagebox.showinfo("Verifica Vincita", message)
 
+    # ===== INTEGRAZIONE API (endpoint configurabile in config.json) =====
+    def fetch_latest_draw(self):
+        """Scarica l'ultima estrazione via API (url in config.json['apiUrl']).
+        Formato JSON atteso: {data, numeri[6], jolly, star, jackpot}.
+        Se non configurato o fallisce, mostra istruzioni."""
+        cfg = {}
+        try:
+            with open("config.json", "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except:
+            pass
+        api_url = cfg.get("apiUrl", "")
+        if not api_url:
+            messagebox.showinfo(
+                "API non configurata",
+                "Inserisci 'apiUrl' in config.json per scaricare i dati automaticamente.\n\n"
+                "Formato JSON atteso dall'endpoint:\n"
+                "{\n  \"data\": \"GG/MM/AAAA\",\n  \"numeri\": [n1..n6],\n  "
+                "\"jolly\": n,\n  \"star\": n,\n  \"jackpot\": importo\n}\n\n"
+                "Oppure usa il bottone 'Aggiorna CSV' (richiede lo script PowerShell).",
+            )
+            return
+        try:
+            import urllib.request
+            import ssl
+
+            # NOTE: TLS verification disabled intentionally — many public lottery
+            # endpoints use expired/self-signed certs; this is read-only scraping
+            # of non-sensitive public data from a desktop app, not auth traffic.
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(
+                api_url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=12, context=ctx) as r:
+                data = json.loads(r.read().decode("utf-8", "ignore"))
+            self._apply_draw_data(data)
+        except Exception as e:
+            messagebox.showerror("Errore API", f"Impossibile scaricare i dati:\n{str(e)[:200]}")
+
+    def _apply_draw_data(self, data):
+        """Normalizza il JSON dell'API e aggiorna CSV + jackpot + verificatore."""
+        numeri = [int(x) for x in data.get("numeri", data.get("numbers", []))]
+        if len(numeri) != 6:
+            messagebox.showerror("Dati non validi", "L'API non ha restituito 6 numeri.")
+            return
+        jolly = int(data.get("jolly", 0) or 0)
+        star = int(data.get("star", 0) or 0)
+        jackpot = float(data.get("jackpot", 0) or 0)
+        data_str = str(data.get("data", datetime.now().strftime("%d/%m/%Y")))
+        # aggiorna jackpot label
+        if jackpot > 0:
+            self.jackpot_label.config(text=f"€{jackpot:,.0f}")
+        # append to CSV if not already present
+        exists = any(r["data"] == data_str for r in self.records)
+        if not exists:
+            with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(
+                    [data_str, "", "1.00", "1"]
+                    + numeri
+                    + [jolly, star]
+                )
+            self.load_data()
+            self.update_stats_display()
+            self.update_results_display()
+            messagebox.showinfo(
+                "Dati aggiornati",
+                f"Estrazione {data_str} aggiunta.\nJackpot: €{jackpot:,.0f}",
+            )
+        else:
+            messagebox.showinfo("Già presente", f"Estrazione {data_str} già nel database.")
+
+    def update_jackpot(self):
+        """Prova a leggere il jackpot da un endpoint configurato; se assente usa il valore in config.json."""
+        cfg = {}
+        try:
+            with open("config.json", "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except:
+            pass
+        jp = cfg.get("jackpot", 0)
+        url = cfg.get("jackpotUrl", "")
+        if url:
+            try:
+                import urllib.request, ssl
+
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=12, context=ctx) as r:
+                    txt = r.read().decode("utf-8", "ignore")
+                import re
+
+                m = re.search(r"(?:€|euro)\s?([\d.]+)", txt, re.I)
+                if m:
+                    jp = float(m.group(1).replace(".", ""))
+            except:
+                pass
+        if jp:
+            self.jackpot_label.config(text=f"€{jp:,.0f}")
+        else:
+            self.jackpot_label.config(text="€0 (API non configurata)")
 
 def main():
     root = tk.Tk()
