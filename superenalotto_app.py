@@ -237,18 +237,6 @@ class SuperenalottoApp:
         )
         self.schedine_spin.grid(row=2, column=1, sticky="w", padx=5, pady=4)
 
-        tk.Label(
-            frame, text="Algoritmo:",
-            bg=self.C_CARD, fg=self.C_MUTED, font=("Segoe UI", 9),
-        ).grid(row=3, column=0, sticky="w", padx=5, pady=4)
-        self.algo_var = tk.StringVar(value="Auto (migliore)")
-        algo_list = ["Auto (migliore)"] + list(self.STRATEGIES.keys())
-        self.algo_combo = ttk.Combobox(
-            frame, textvariable=self.algo_var, values=algo_list,
-            state="readonly", font=("Segoe UI", 9), width=18,
-        )
-        self.algo_combo.grid(row=3, column=1, sticky="w", padx=5, pady=4)
-
         tk.Button(
             frame,
             text="GENERA SCHEDINE",
@@ -263,13 +251,14 @@ class SuperenalottoApp:
 
         tk.Label(
             frame,
-            text="Auto = miglior ROI backtest (QuartileSpread 35.73%).\n"
-                  "Genera 1-5 schedine UNA volta, con l'algoritmo scelto.",
+            text="Strategia QuartileSpread (copertura spaziale 1-90): 1 numero/quartile,\n"
+                  "somma 246-306, max 2/decade, max 1 numero>80.\n"
+                  "Le altre strategie sono usate SOLO per backtest (bottone 'Valuta Algoritmi').",
             bg=self.C_CARD,
             fg=self.C_MUTED,
             font=("Segoe UI", 8),
             justify="left",
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=2)
+        ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 6))
 
         tk.Label(
             frame,
@@ -784,24 +773,13 @@ class SuperenalottoApp:
         return perf, best
 
     def generate_optimal_dual(self):
-        """Genera 1-5 schedine con l'algoritmo selezionato, UNA SOLA VOLTA."""
+        """Genera 1-5 schedine con QuartileSpread (strategia unica, UNA SOLA VOLTA).
+        Le altre strategie servono solo per backtest (evaluate_and_show)."""
         if not self.stats:
             messagebox.showwarning("Attenzione", "Carica prima i dati!")
             return
 
-        sel = self.algo_var.get()
-        if sel == "Auto (migliore)":
-            perf, sel = self._best_auto()
-            roi_info = perf.get("results", {}).get(sel, {})
-            roi_str = f" (ROI {roi_info.get('roi',0)}% su {perf.get('window',50)} draw)"
-        else:
-            roi_str = ""
-
-        strategy = self.STRATEGIES.get(sel)
-        if not strategy:
-            messagebox.showerror("Errore", f"Strategia '{sel}' non disponibile.")
-            return
-        fn = getattr(self, strategy["fn"])
+        fn = self._quartile_spread
 
         n_schedine = max(1, min(5, int(self.schedine_var.get())))
         self.generated_numbers = []
@@ -809,7 +787,7 @@ class SuperenalottoApp:
             q = fn()
             self.generated_numbers.append({"nums": q, "sum": sum(q)})
 
-        self.status_label.config(text=f"{sel}{roi_str} | {n_schedine} schedine")
+        self.status_label.config(text=f"QuartileSpread | {n_schedine} schedine")
         self.display_generated_numbers()
         self.save_to_tracking()
 
