@@ -35,10 +35,12 @@ class SuperenalottoApp:
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
-                    return config.get("apiKey", "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d")
+                    return config.get("apiKey", "[REDACTED]")
             except:
                 pass
-        return "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+        return None
+
+    def setup_styles(self):
         style = ttk.Style()
         style.theme_use("clam")
         style.configure(
@@ -445,17 +447,37 @@ class SuperenalottoApp:
         return True
 
     def _quartile_spread(self):
-        for _ in range(500):
-            c = sorted(random.sample(range(1, 91), 6))
-            if not self._valid_constraints(c):
+        # Costruisce 6 numeri garantendo 1 per quartile (copertura spaziale massima)
+        q_ranges = [(1, 22), (23, 45), (46, 67), (68, 90)]
+        best = None
+        for _ in range(2000):
+            # distribuzione 2+1+1+2 o 1+2+2+1 o simili, sempre >=1 per quartile
+            alloc = [1, 1, 1, 1]
+            extra = 2
+            while extra > 0:
+                alloc[random.randrange(4)] += 1
+                extra -= 1
+            nums = []
+            ok = True
+            for qi in range(4):
+                lo, hi = q_ranges[qi]
+                pick = random.sample(range(lo, hi + 1), alloc[qi])
+                nums.extend(pick)
+            nums = sorted(nums)
+            if not self._valid_constraints(nums):
                 continue
-            q1 = sum(1 for n in c if n <= 22)
-            q2 = sum(1 for n in c if 23 <= n <= 45)
-            q3 = sum(1 for n in c if 46 <= n <= 67)
-            q4 = sum(1 for n in c if n >= 68)
-            if q1 >= 1 and q2 >= 1 and q3 >= 1 and q4 >= 1:
-                return c
-        return sorted(random.sample(range(1, 91), 6))
+            if best is None:
+                best = nums
+                # accetta subito il primo valido (vincoli già garantiti)
+                return nums
+        # fallback estremo: 1 per quartile + 2 casuali nei bordi
+        if best is None:
+            nums = []
+            for lo, hi in q_ranges:
+                nums.append(random.randint(lo, hi))
+            nums.extend(random.sample(range(1, 91), 2))
+            return sorted(nums)
+        return best
 
     def generate_optimal_dual(self):
         """Modalita' Dual ottimale (backtest 4226 draw, ROI 35.73%):
