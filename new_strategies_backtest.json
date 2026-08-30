@@ -1,0 +1,64 @@
+﻿{
+    "best":  "GapSpread",
+    "strategies":  {
+                       "MiddleFrequency":  {
+                                               "net":  -3066,
+                                               "roi":  27.45,
+                                               "m4":  1,
+                                               "m3":  13,
+                                               "m6":  0,
+                                               "m5":  0,
+                                               "won":  1160,
+                                               "spent":  4226,
+                                               "m2":  186
+                                           },
+                       "TemporalRotation":  {
+                                                "net":  -3131,
+                                                "roi":  25.91,
+                                                "m4":  0,
+                                                "m3":  11,
+                                                "m6":  0,
+                                                "m5":  0,
+                                                "won":  1095,
+                                                "spent":  4226,
+                                                "m2":  197
+                                            },
+                       "OneConsecutivePair":  {
+                                                  "net":  -3021,
+                                                  "roi":  28.51,
+                                                  "m4":  1,
+                                                  "m3":  15,
+                                                  "m6":  0,
+                                                  "m5":  0,
+                                                  "won":  1205,
+                                                  "spent":  4226,
+                                                  "m2":  191
+                                              },
+                       "ComplementMirror":  {
+                                                "net":  -3156,
+                                                "roi":  25.32,
+                                                "m4":  0,
+                                                "m3":  10,
+                                                "m6":  0,
+                                                "m5":  0,
+                                                "won":  1070,
+                                                "spent":  4226,
+                                                "m2":  194
+                                            },
+                       "GapSpread":  {
+                                         "net":  -2801,
+                                         "roi":  33.72,
+                                         "m4":  3,
+                                         "m3":  15,
+                                         "m6":  0,
+                                         "m5":  0,
+                                         "won":  1425,
+                                         "spent":  4226,
+                                         "m2":  195
+                                     }
+                   },
+    "metadata":  {
+                     "draws":  4226,
+                     "ticketsPerDraw":  1
+                 }
+}

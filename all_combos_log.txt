@@ -1,0 +1,29 @@
+Draws: 4226
+Pools built: Mid=500 One=500 Gap=500 LDS=500
+Combos: 45
+  [10] ComplementMirror x2 : Net -6252 ROI 26.03%
+  [20] GapSpread + MiddleFrequency : Net -6117 ROI 27.63%
+  [30] LastDigitSpread + SameNumbers : Net -6137 ROI 27.39%
+  [40] OneConsecutivePair x2 : Net -6462 ROI 23.54%
+
+=== TOP 10 (minore perdita netta) ===
+  ComplementMirror + OddEvenBalanced Net   -5807 | M2:435 M3:27 M4:2 M5:0 M6:0 | ROI 31,29%
+  MiddleFrequency x2               Net   -5852 | M2:428 M3:26 M4:2 M5:0 M6:0 | ROI 30,76%
+  ComplementMirror + MiddleFrequency Net   -5982 | M2:418 M3:28 M4:1 M5:0 M6:0 | ROI 29,22%
+  LastDigitSpread + MiddleFrequency Net   -5982 | M2:406 M3:24 M4:2 M5:0 M6:0 | ROI 29,22%
+  MiddleFrequency + SameNumbers    Net   -6007 | M2:411 M3:29 M4:1 M5:0 M6:0 | ROI 28,93%
+  OddEvenBalanced + Random         Net   -6042 | M2:376 M3:33 M4:2 M5:0 M6:0 | ROI 28,51%
+  90NumberCycle + MiddleFrequency  Net   -6057 | M2:411 M3:24 M4:1 M5:0 M6:0 | ROI 28,34%
+  LastDigitSpread + Random         Net   -6072 | M2:388 M3:24 M4:2 M5:0 M6:0 | ROI 28,16%
+  Random x2                        Net   -6102 | M2:420 M3:25 M4:0 M5:0 M6:0 | ROI 27,8%
+  LastDigitSpread x2               Net   -6112 | M2:384 M3:22 M4:2 M5:0 M6:0 | ROI 27,69%
+
+=== BOTTOM 5 (peggiori) ===
+  GapSpread x2                     Net   -6382 | ROI 24,49%
+  GapSpread + OddEvenBalanced      Net   -6397 | ROI 24,31%
+  GapSpread + OneConsecutivePair   Net   -6422 | ROI 24,02%
+  OddEvenBalanced + OneConsecutivePair Net   -6427 | ROI 23,96%
+  OneConsecutivePair x2            Net   -6462 | ROI 23,54%
+
+BEST COMBO: ComplementMirror + OddEvenBalanced (Net -5807, ROI 31.29%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\all_combos_backtest.json

@@ -1,0 +1,13 @@
+Draws: 4226
+Building pools...
+Pools: Mid=400 OnePair=400 Gap=400
+
+=== NEW STRATEGIES (1 ticket/draw, 4226 draws) ===
+  MiddleFrequency : Net -3066 | M2:186 M3:13 M4:1 M5:0 M6:0 | ROI 27.45%
+  TemporalRotation : Net -3131 | M2:197 M3:11 M4:0 M5:0 M6:0 | ROI 25.91%
+  OneConsecutivePair : Net -3021 | M2:191 M3:15 M4:1 M5:0 M6:0 | ROI 28.51%
+  ComplementMirror : Net -3156 | M2:194 M3:10 M4:0 M5:0 M6:0 | ROI 25.32%
+  GapSpread : Net -2801 | M2:195 M3:15 M4:3 M5:0 M6:0 | ROI 33.72%
+
+BEST: GapSpread (Net -2801, ROI 33.72%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\new_strategies_backtest.json

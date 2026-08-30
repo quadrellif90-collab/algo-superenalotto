@@ -192,6 +192,18 @@ class SuperenalottoApp:
             pady=5,
         ).grid(row=1, column=0, columnspan=2, pady=15)
 
+        tk.Button(
+            frame,
+            text="Genera Dual Ottimale (ROI 32%)",
+            command=self.generate_optimal_dual,
+            bg="#00ff88",
+            fg="#1a1a2e",
+            font=("Segoe UI", 10, "bold"),
+            activebackground="#88ffcc",
+            padx=20,
+            pady=5,
+        ).grid(row=2, column=0, columnspan=2, pady=5)
+
         tk.Label(
             frame,
             text="Schedine generate:",
@@ -409,6 +421,54 @@ class SuperenalottoApp:
             return next_date.strftime("%d/%m/%Y")
 
         return "N/A"
+
+    def _valid_constraints(self, nums):
+        s = sum(nums)
+        if s < 246 or s > 306:
+            return False
+        decades = Counter(n // 10 for n in nums)
+        if max(decades.values()) > 2:
+            return False
+        if sum(1 for n in nums if n > 80) > 1:
+            return False
+        return True
+
+    def _last_digit_spread(self):
+        for _ in range(500):
+            c = sorted(random.sample(range(1, 91), 6))
+            if self._valid_constraints(c) and len({n % 10 for n in c}) == 6:
+                return c
+        return sorted(random.sample(range(1, 91), 6))
+
+    def _delayed_numbers(self, history):
+        recent = set()
+        for past in history[-20:]:
+            recent.update(past)
+        pool = [n for n in range(1, 91) if n not in recent]
+        for _ in range(500):
+            if len(pool) < 6:
+                break
+            c = sorted(random.sample(pool, 6))
+            if self._valid_constraints(c):
+                return c
+        return sorted(random.sample(range(1, 91), 6))
+
+    def generate_optimal_dual(self):
+        """Modalita' Dual ottimale (backtest 4226 draw, ROI 32.48%):
+        DelayedNumbers + LastDigitSpread, 2 biglietti per estrazione."""
+        if not self.stats:
+            messagebox.showwarning("Attenzione", "Carica prima i dati!")
+            return
+
+        history = [r["nums"] for r in self.records] if hasattr(self, "records") else []
+        self.generated_numbers = []
+        self.generated_numbers.append({"nums": self._last_digit_spread(), "sum": 0})
+        self.generated_numbers[-1]["sum"] = sum(self.generated_numbers[-1]["nums"])
+        delayed = self._delayed_numbers(history)
+        self.generated_numbers.append({"nums": delayed, "sum": sum(delayed)})
+
+        self.display_generated_numbers()
+        self.save_to_tracking()
 
     def generate_numbers(self):
         if not self.stats:

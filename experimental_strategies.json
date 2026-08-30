@@ -1,0 +1,95 @@
+﻿{
+    "metadata":  {
+                     "totalDraws":  4226,
+                     "dateRange":  "1997-12-03 to 2026-08-21",
+                     "ticketsPerDraw":  2,
+                     "totalTicketsPerStrategy":  8452
+                 },
+    "bestExperimentalStrategy":  "SameNumbersPerpetual",
+    "experimentalStrategies":  {
+                                   "LuckyPersistence":  {
+                                                            "netResult":  -8190,
+                                                            "match6":  null,
+                                                            "drawsTested":  4226,
+                                                            "totalTickets":  8450,
+                                                            "match4":  null,
+                                                            "totalWon":  260,
+                                                            "match5":  null,
+                                                            "roiPercent":  3.08,
+                                                            "match3":  null,
+                                                            "totalSpent":  8450
+                                                        },
+                                   "SumLock276":  {
+                                                      "netResult":  -8272,
+                                                      "match6":  null,
+                                                      "drawsTested":  4226,
+                                                      "totalTickets":  8452,
+                                                      "match4":  null,
+                                                      "totalWon":  180,
+                                                      "match5":  null,
+                                                      "roiPercent":  2.13,
+                                                      "match3":  null,
+                                                      "totalSpent":  8452
+                                                  },
+                                   "LastDigitSpread":  {
+                                                           "netResult":  -8122,
+                                                           "match6":  null,
+                                                           "drawsTested":  4226,
+                                                           "totalTickets":  8452,
+                                                           "match4":  null,
+                                                           "totalWon":  330,
+                                                           "match5":  null,
+                                                           "roiPercent":  3.9,
+                                                           "match3":  null,
+                                                           "totalSpent":  8452
+                                                       },
+                                   "90NumberCycle":  {
+                                                         "netResult":  -7822,
+                                                         "match6":  null,
+                                                         "drawsTested":  4226,
+                                                         "totalTickets":  8452,
+                                                         "match4":  null,
+                                                         "totalWon":  630,
+                                                         "match5":  null,
+                                                         "roiPercent":  7.45,
+                                                         "match3":  null,
+                                                         "totalSpent":  8452
+                                                     },
+                                   "FibonacciWheel":  {
+                                                          "netResult":  -4146,
+                                                          "match6":  null,
+                                                          "drawsTested":  4226,
+                                                          "totalTickets":  4226,
+                                                          "match4":  null,
+                                                          "totalWon":  80,
+                                                          "match5":  null,
+                                                          "roiPercent":  1.89,
+                                                          "match3":  null,
+                                                          "totalSpent":  4226
+                                                      },
+                                   "SameNumbersPerpetual":  {
+                                                                "netResult":  -4066,
+                                                                "match6":  null,
+                                                                "drawsTested":  4226,
+                                                                "totalTickets":  4226,
+                                                                "match4":  null,
+                                                                "totalWon":  160,
+                                                                "match5":  null,
+                                                                "roiPercent":  3.79,
+                                                                "match3":  null,
+                                                                "totalSpent":  4226
+                                                            },
+                                   "OddEvenBalanced":  {
+                                                           "netResult":  -8142,
+                                                           "match6":  null,
+                                                           "drawsTested":  4226,
+                                                           "totalTickets":  8452,
+                                                           "match4":  null,
+                                                           "totalWon":  310,
+                                                           "match5":  null,
+                                                           "roiPercent":  3.67,
+                                                           "match3":  null,
+                                                           "totalSpent":  8452
+                                                       }
+                               }
+}

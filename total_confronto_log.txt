@@ -1,0 +1,25 @@
+Draws: 4226
+Pools: LDS=500 Mid=500 One=500 Gap=500 Dec=500 Sum=500 Pri=500
+Strategie: 13 | Combos dual: 91
+
+--- SINGOLE (1 biglietto/estrazione) ---
+  90NumberCycle : Net -3131 | M2:197 M3:11 M4:0 | ROI 25.91%
+  ComplementMirror : Net -3021 | M2:213 M3:14 M4:0 | ROI 28.51%
+  DecadeBalanced : Net -3076 | M2:208 M3:11 M4:0 | ROI 27.21%
+  DelayedNumbers : Net -3036 | M2:214 M3:12 M4:0 | ROI 28.16%
+  GapSpread : Net -3046 | M2:186 M3:15 M4:1 | ROI 27.92%
+  LastDigitSpread : Net -2856 | M2:236 M3:9 M4:1 | ROI 32.42%
+  MiddleFrequency : Net -3081 | M2:209 M3:10 M4:0 | ROI 27.09%
+  OddEvenBalanced : Net -3311 | M2:161 M3:11 M4:0 | ROI 21.65%
+  OneConsecutivePair : Net -3146 | M2:182 M3:17 M4:0 | ROI 25.56%
+  PrimeFocus : Net -3076 | M2:198 M3:6 M4:1 | ROI 27.21%
+  Random : Net -3216 | M2:184 M3:9 M4:0 | ROI 23.9%
+  SameNumbers : Net -3081 | M2:197 M3:16 M4:0 | ROI 27.09%
+  SumLocked276 : Net -3106 | M2:184 M3:10 M4:1 | ROI 26.5%
+
+--- DUALI (2 biglietti/estrazione) ---
+
+=== BEST SINGLE: LastDigitSpread (Net -2856, ROI 32.42%) ===
+=== BEST DUAL:  DelayedNumbers + LastDigitSpread (Net -5707, ROI 32.48%) ===
+=== WORST DUAL: OddEvenBalanced + SameNumbers (Net -6357, ROI 24.79%) ===
+Saved C:\Users\Siviglino\Desktop\Superenalotto\total_confronto.json

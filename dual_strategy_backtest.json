@@ -1,0 +1,76 @@
+﻿{
+    "bestCombo":  "90NumberCycle + LastDigitSpread",
+    "combinations":  {
+                         "SameNumbersPerpetual + OddEvenBalanced":  {
+                                                                        "match2":  405,
+                                                                        "match6":  0,
+                                                                        "match5":  0,
+                                                                        "totalSpent":  8452,
+                                                                        "match4":  0,
+                                                                        "totalWon":  2295,
+                                                                        "netResult":  -6157,
+                                                                        "roiPercent":  27.15,
+                                                                        "match3":  27
+                                                                    },
+                         "90NumberCycle + LastDigitSpread":  {
+                                                                 "match2":  399,
+                                                                 "match6":  0,
+                                                                 "match5":  0,
+                                                                 "totalSpent":  8452,
+                                                                 "match4":  1,
+                                                                 "totalWon":  2425,
+                                                                 "netResult":  -6027,
+                                                                 "roiPercent":  28.69,
+                                                                 "match3":  33
+                                                             },
+                         "90NumberCycle + OddEvenBalanced":  {
+                                                                 "match2":  366,
+                                                                 "match6":  0,
+                                                                 "match5":  0,
+                                                                 "totalSpent":  8452,
+                                                                 "match4":  1,
+                                                                 "totalWon":  2230,
+                                                                 "netResult":  -6222,
+                                                                 "roiPercent":  26.38,
+                                                                 "match3":  30
+                                                             },
+                         "LastDigitSpread + SameNumbersPerpetual":  {
+                                                                        "match2":  386,
+                                                                        "match6":  0,
+                                                                        "match5":  0,
+                                                                        "totalSpent":  8452,
+                                                                        "match4":  0,
+                                                                        "totalWon":  2220,
+                                                                        "netResult":  -6232,
+                                                                        "roiPercent":  26.27,
+                                                                        "match3":  29
+                                                                    },
+                         "LastDigitSpread + OddEvenBalanced":  {
+                                                                   "match2":  362,
+                                                                   "match6":  0,
+                                                                   "match5":  0,
+                                                                   "totalSpent":  8452,
+                                                                   "match4":  1,
+                                                                   "totalWon":  2150,
+                                                                   "netResult":  -6302,
+                                                                   "roiPercent":  25.44,
+                                                                   "match3":  24
+                                                               },
+                         "90NumberCycle + SameNumbersPerpetual":  {
+                                                                      "match2":  373,
+                                                                      "match6":  0,
+                                                                      "match5":  0,
+                                                                      "totalSpent":  8452,
+                                                                      "match4":  1,
+                                                                      "totalWon":  2305,
+                                                                      "netResult":  -6147,
+                                                                      "roiPercent":  27.27,
+                                                                      "match3":  34
+                                                                  }
+                     },
+    "metadata":  {
+                     "totalDraws":  4226,
+                     "totalTickets":  8452,
+                     "ticketsPerDraw":  2
+                 }
+}
