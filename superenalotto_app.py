@@ -180,6 +180,20 @@ class SuperenalottoApp:
         )
         self.jackpot_label.grid(row=0, column=1, sticky="w", padx=10)
 
+        # Selettore numero schedine (1-5)
+        tk.Label(
+            frame, text="Schedine da generare:",
+            bg="#16213e", fg="#888888", font=("Segoe UI", 9),
+        ).grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        self.schedine_var = tk.IntVar(value=2)
+        self.schedine_spin = tk.Spinbox(
+            frame, from_=1, to=5, width=5,
+            textvariable=self.schedine_var,
+            bg="#1a1a2e", fg="#00ff88", font=("Segoe UI", 10, "bold"),
+            state="readonly",
+        )
+        self.schedine_spin.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+
         tk.Button(
             frame,
             text="Genera Numeri",
@@ -190,7 +204,7 @@ class SuperenalottoApp:
             activebackground="#ff6b6b",
             padx=20,
             pady=5,
-        ).grid(row=1, column=0, columnspan=2, pady=15)
+        ).grid(row=2, column=0, columnspan=2, pady=15)
 
         tk.Button(
             frame,
@@ -202,7 +216,7 @@ class SuperenalottoApp:
             activebackground="#88ffcc",
             padx=20,
             pady=5,
-        ).grid(row=2, column=0, columnspan=2, pady=5)
+        ).grid(row=3, column=0, columnspan=2, pady=5)
 
         tk.Label(
             frame,
@@ -210,10 +224,10 @@ class SuperenalottoApp:
             bg="#16213e",
             fg="#888888",
             font=("Segoe UI", 9),
-        ).grid(row=2, column=0, sticky="w")
+        ).grid(row=4, column=0, sticky="w")
 
         self.numbers_frame = tk.Frame(frame, bg="#16213e")
-        self.numbers_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=5)
+        self.numbers_frame.grid(row=5, column=0, columnspan=2, sticky="ew", pady=5)
 
     def create_results_section(self, parent):
         frame = tk.LabelFrame(
@@ -448,16 +462,16 @@ class SuperenalottoApp:
 
     def generate_optimal_dual(self):
         """Modalita' Dual ottimale (backtest 4226 draw, ROI 35.73%):
-        QuartileSpread x2, 2 biglietti per estrazione."""
+        QuartileSpread x N schedine (1-5), 1 biglietto per estrazione cadauna."""
         if not self.stats:
             messagebox.showwarning("Attenzione", "Carica prima i dati!")
             return
 
+        n_schedine = max(1, min(5, int(self.schedine_var.get())))
         self.generated_numbers = []
-        q1 = self._quartile_spread()
-        self.generated_numbers.append({"nums": q1, "sum": sum(q1)})
-        q2 = self._quartile_spread()
-        self.generated_numbers.append({"nums": q2, "sum": sum(q2)})
+        for _ in range(n_schedine):
+            q = self._quartile_spread()
+            self.generated_numbers.append({"nums": q, "sum": sum(q)})
 
         self.display_generated_numbers()
         self.save_to_tracking()
@@ -467,13 +481,14 @@ class SuperenalottoApp:
             messagebox.showwarning("Attenzione", "Carica prima i dati!")
             return
 
+        n_schedine = max(1, min(5, int(self.schedine_var.get())))
         mean = self.stats["mean"]
         target_low = int(mean - 30)
         target_high = int(mean + 30)
 
         self.generated_numbers = []
 
-        for schedina_num in range(1, 3):
+        for schedina_num in range(1, n_schedine + 1):
             attempts = 0
             while attempts < 1000:
                 nums = sorted(random.sample(range(1, 91), 6))

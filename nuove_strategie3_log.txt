@@ -1,0 +1,16 @@
+Draws: 4226
+Pools: Even=500 Cen=500 Har=500 Fib=500 6Dec=500 Fix=500
+
+--- SINGOLE (1 biglietto) ---
+  CenterBias : Net -3336 | M2:158 M3:10 M4:0 | ROI 21.06%
+  EvenSum : Net -3191 | M2:193 M3:7 M4:0 | ROI 24.49%
+  Fibonacci : Net -3066 | M2:190 M3:21 M4:0 | ROI 27.45%
+  FixedGap : Net -2791 | M2:237 M3:15 M4:1 | ROI 33.96%
+  HarmonicGap : Net -3071 | M2:209 M3:11 M4:0 | ROI 27.33%
+  SixDecades : Net -3136 | M2:190 M3:14 M4:0 | ROI 25.79%
+
+--- DUALI (2 biglietti) ---
+
+BEST SINGLE: FixedGap (Net -2791, ROI 33.96%)
+BEST DUAL:  FixedGap x2 (Net -5582, ROI 33.96%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\nuove_strategie3.json

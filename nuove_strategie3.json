@@ -1,0 +1,244 @@
+﻿{
+    "single":  {
+                   "Fibonacci":  {
+                                     "m4":  0,
+                                     "m3":  21,
+                                     "net":  -3066,
+                                     "m2":  190,
+                                     "roi":  27.45
+                                 },
+                   "FixedGap":  {
+                                    "m4":  1,
+                                    "m3":  15,
+                                    "net":  -2791,
+                                    "m2":  237,
+                                    "roi":  33.96
+                                },
+                   "CenterBias":  {
+                                      "m4":  0,
+                                      "m3":  10,
+                                      "net":  -3336,
+                                      "m2":  158,
+                                      "roi":  21.06
+                                  },
+                   "EvenSum":  {
+                                   "m4":  0,
+                                   "m3":  7,
+                                   "net":  -3191,
+                                   "m2":  193,
+                                   "roi":  24.49
+                               },
+                   "HarmonicGap":  {
+                                       "m4":  0,
+                                       "m3":  11,
+                                       "net":  -3071,
+                                       "m2":  209,
+                                       "roi":  27.33
+                                   },
+                   "SixDecades":  {
+                                      "m4":  0,
+                                      "m3":  14,
+                                      "net":  -3136,
+                                      "m2":  190,
+                                      "roi":  25.79
+                                  }
+               },
+    "bestSingle":  "FixedGap",
+    "dual":  {
+                 "FixedGap x2":  {
+                                     "m4":  2,
+                                     "roi":  33.96,
+                                     "m3":  30,
+                                     "net":  -5582,
+                                     "spent":  8452,
+                                     "won":  2870,
+                                     "m2":  474
+                                 },
+                 "CenterBias + SixDecades":  {
+                                                 "m4":  0,
+                                                 "roi":  23.43,
+                                                 "m3":  24,
+                                                 "net":  -6472,
+                                                 "spent":  8452,
+                                                 "won":  1980,
+                                                 "m2":  348
+                                             },
+                 "HarmonicGap + SixDecades":  {
+                                                  "m4":  0,
+                                                  "roi":  26.56,
+                                                  "m3":  25,
+                                                  "net":  -6207,
+                                                  "spent":  8452,
+                                                  "won":  2245,
+                                                  "m2":  399
+                                              },
+                 "EvenSum x2":  {
+                                    "m4":  0,
+                                    "roi":  24.49,
+                                    "m3":  14,
+                                    "net":  -6382,
+                                    "spent":  8452,
+                                    "won":  2070,
+                                    "m2":  386
+                                },
+                 "EvenSum + FixedGap":  {
+                                            "m4":  1,
+                                            "roi":  29.22,
+                                            "m3":  22,
+                                            "net":  -5982,
+                                            "spent":  8452,
+                                            "won":  2470,
+                                            "m2":  430
+                                        },
+                 "EvenSum + HarmonicGap":  {
+                                               "m4":  0,
+                                               "roi":  25.91,
+                                               "m3":  18,
+                                               "net":  -6262,
+                                               "spent":  8452,
+                                               "won":  2190,
+                                               "m2":  402
+                                           },
+                 "CenterBias + FixedGap":  {
+                                               "m4":  1,
+                                               "roi":  27.51,
+                                               "m3":  25,
+                                               "net":  -6127,
+                                               "spent":  8452,
+                                               "won":  2325,
+                                               "m2":  395
+                                           },
+                 "CenterBias x2":  {
+                                       "m4":  0,
+                                       "roi":  21.06,
+                                       "m3":  20,
+                                       "net":  -6672,
+                                       "spent":  8452,
+                                       "won":  1780,
+                                       "m2":  316
+                                   },
+                 "FixedGap + SixDecades":  {
+                                               "m4":  1,
+                                               "roi":  29.87,
+                                               "m3":  29,
+                                               "net":  -5927,
+                                               "spent":  8452,
+                                               "won":  2525,
+                                               "m2":  427
+                                           },
+                 "EvenSum + SixDecades":  {
+                                              "m4":  0,
+                                              "roi":  25.14,
+                                              "m3":  21,
+                                              "net":  -6327,
+                                              "spent":  8452,
+                                              "won":  2125,
+                                              "m2":  383
+                                          },
+                 "SixDecades x2":  {
+                                       "m4":  0,
+                                       "roi":  25.79,
+                                       "m3":  28,
+                                       "net":  -6272,
+                                       "spent":  8452,
+                                       "won":  2180,
+                                       "m2":  380
+                                   },
+                 "FixedGap + HarmonicGap":  {
+                                                "m4":  1,
+                                                "roi":  30.64,
+                                                "m3":  26,
+                                                "net":  -5862,
+                                                "spent":  8452,
+                                                "won":  2590,
+                                                "m2":  446
+                                            },
+                 "Fibonacci + SixDecades":  {
+                                                "m4":  0,
+                                                "roi":  26.62,
+                                                "m3":  35,
+                                                "net":  -6202,
+                                                "spent":  8452,
+                                                "won":  2250,
+                                                "m2":  380
+                                            },
+                 "Fibonacci + FixedGap":  {
+                                              "m4":  1,
+                                              "roi":  30.7,
+                                              "m3":  36,
+                                              "net":  -5857,
+                                              "spent":  8452,
+                                              "won":  2595,
+                                              "m2":  427
+                                          },
+                 "CenterBias + Fibonacci":  {
+                                                "m4":  0,
+                                                "roi":  24.25,
+                                                "m3":  31,
+                                                "net":  -6402,
+                                                "spent":  8452,
+                                                "won":  2050,
+                                                "m2":  348
+                                            },
+                 "EvenSum + Fibonacci":  {
+                                             "m4":  0,
+                                             "roi":  25.97,
+                                             "m3":  28,
+                                             "net":  -6257,
+                                             "spent":  8452,
+                                             "won":  2195,
+                                             "m2":  383
+                                         },
+                 "Fibonacci + HarmonicGap":  {
+                                                 "m4":  0,
+                                                 "roi":  27.39,
+                                                 "m3":  32,
+                                                 "net":  -6137,
+                                                 "spent":  8452,
+                                                 "won":  2315,
+                                                 "m2":  399
+                                             },
+                 "CenterBias + EvenSum":  {
+                                              "m4":  0,
+                                              "roi":  22.78,
+                                              "m3":  17,
+                                              "net":  -6527,
+                                              "spent":  8452,
+                                              "won":  1925,
+                                              "m2":  351
+                                          },
+                 "CenterBias + HarmonicGap":  {
+                                                  "m4":  0,
+                                                  "roi":  24.2,
+                                                  "m3":  21,
+                                                  "net":  -6407,
+                                                  "spent":  8452,
+                                                  "won":  2045,
+                                                  "m2":  367
+                                              },
+                 "Fibonacci x2":  {
+                                      "m4":  0,
+                                      "roi":  27.45,
+                                      "m3":  42,
+                                      "net":  -6132,
+                                      "spent":  8452,
+                                      "won":  2320,
+                                      "m2":  380
+                                  },
+                 "HarmonicGap x2":  {
+                                        "m4":  0,
+                                        "roi":  27.33,
+                                        "m3":  22,
+                                        "net":  -6142,
+                                        "spent":  8452,
+                                        "won":  2310,
+                                        "m2":  418
+                                    }
+             },
+    "bestDual":  "FixedGap x2",
+    "metadata":  {
+                     "dualCount":  21,
+                     "singleCount":  6,
+                     "draws":  4226
+                 }
+}

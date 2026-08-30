@@ -1,0 +1,16 @@
+Draws: 4226
+Pools: SupQ=500 Anti=500 Split=500 Wcen=500 Pgap=500 Mod4=500
+
+--- SINGOLE (1 biglietto) ---
+  AntiCluster : Net -3051 | M2:215 M3:10 M4:0 | ROI 27.8%
+  Mod4Spread : Net -2951 | M2:203 M3:16 M4:1 | ROI 30.17%
+  PrimeGap : Net -3056 | M2:174 M3:20 M4:1 | ROI 27.69%
+  SplitHighLow : Net -3061 | M2:187 M3:13 M4:1 | ROI 27.57%
+  SuperQuartile : Net -3176 | M2:196 M3:7 M4:0 | ROI 24.85%
+  WeightedCenter : Net -3141 | M2:175 M3:11 M4:1 | ROI 25.67%
+
+--- DUALI (2 biglietti) ---
+
+BEST SINGLE: Mod4Spread (Net -2951, ROI 30.17%)
+BEST DUAL:  Mod4Spread x2 (Net -5902, ROI 30.17%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\nuove_strategie4.json
