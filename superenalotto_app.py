@@ -40,6 +40,8 @@ class SuperenalottoApp:
         self.update_jackpot()
         self.update_stats_display()
         self.check_draw_day()
+        # Auto-fetch ultima estrazione da API all'avvio (nessun tasto manuale)
+        self.fetch_latest_draw()
 
     def _load_api_key(self):
         """Load API key from config.json, fallback to hardcoded value if not found"""
@@ -292,29 +294,11 @@ class SuperenalottoApp:
 
         tk.Button(
             btn_frame,
-            text="Aggiorna CSV",
-            command=self.update_csv,
+            text="VERIFICA SCHEDINE PER ESTRAZIONI",
+            command=self.verify_all_schedines,
             bg=self.C_RED,
             fg="white",
-            font=("Segoe UI", 9),
-            activebackground=self.C_RED_DK,
-        ).pack(side="left", padx=4)
-        tk.Button(
-            btn_frame,
-            text="Scarica Dati API",
-            command=self.fetch_latest_draw,
-            bg=self.C_RED,
-            fg="white",
-            font=("Segoe UI", 9),
-            activebackground=self.C_RED_DK,
-        ).pack(side="left", padx=4)
-        tk.Button(
-            btn_frame,
-            text="Agg. Jackpot",
-            command=self.update_jackpot,
-            bg=self.C_RED,
-            fg="white",
-            font=("Segoe UI", 9),
+            font=("Segoe UI", 10, "bold"),
             activebackground=self.C_RED_DK,
         ).pack(side="left", padx=4)
         tk.Button(
@@ -324,15 +308,6 @@ class SuperenalottoApp:
             bg=self.C_RED,
             fg="white",
             font=("Segoe UI", 9),
-            activebackground=self.C_RED_DK,
-        ).pack(side="left", padx=4)
-        tk.Button(
-            btn_frame,
-            text="Verifica Vince",
-            command=self.check_win,
-            bg=self.C_RED,
-            fg="white",
-            font=("Segoe UI", 9, "bold"),
             activebackground=self.C_RED_DK,
         ).pack(side="left", padx=4)
 
@@ -346,23 +321,31 @@ class SuperenalottoApp:
             reader = csv.reader(f)
             next(reader)
             for row in reader:
-                if len(row) >= 9:
+                if len(row) >= 11:
                     try:
+                        # colonne: data, , prezzo, concorso, n1..n6, jolly, star
                         nums = [
-                            int(row[2]),
-                            int(row[3]),
                             int(row[4]),
                             int(row[5]),
                             int(row[6]),
                             int(row[7]),
+                            int(row[8]),
+                            int(row[9]),
                         ]
+                        data_raw = row[0]
+                        try:
+                            data_norm = datetime.strptime(
+                                data_raw, "%Y-%m-%d"
+                            ).strftime("%d/%m/%Y")
+                        except:
+                            data_norm = data_raw
                         self.records.append(
                             {
-                                "data": row[0],
+                                "data": data_norm,
                                 "nums": nums,
                                 "sum": sum(nums),
-                                "jolly": int(row[8]) if row[8] else 0,
-                                "star": int(row[9]) if len(row) > 9 and row[9] else 0,
+                                "jolly": int(row[10]) if len(row) > 10 and row[10] else 0,
+                                "star": int(row[11]) if len(row) > 11 and row[11] else 0,
                             }
                         )
                     except:
@@ -433,7 +416,15 @@ class SuperenalottoApp:
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
 
-        for record in self.records[-10:]:
+        # ordina per data decrescente (più recente in alto)
+        def _pd(r):
+            try:
+                return datetime.strptime(r["data"], "%d/%m/%Y")
+            except:
+                return datetime.min
+
+        sorted_recs = sorted(self.records, key=_pd, reverse=True)
+        for record in sorted_recs[:10]:
             self.results_tree.insert(
                 "",
                 0,
@@ -681,6 +672,68 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         message += f"\nVincita totale stimata: €{tot_win}"
         messagebox.showinfo("Verifica Vincita", message)
 
+    def verify_all_schedines(self):
+        """Verifica tutte le schedine generate in tracking.csv, ma SOLO per i giorni
+        in cui esiste un'estrazione reale nel database (mar/ghi/ven/sab)."""
+        if not os.path.exists(self.tracking_path):
+            messagebox.showinfo("Verifica", "Nessuna schedina salvata in tracking.csv.")
+            return
+        # mappa data estrazione -> record reale
+        draws_by_date = {r["data"]: r for r in self.records}
+        # giorni con estrazione (dal DB caricato)
+        draw_days = set(draws_by_date.keys())
+
+        rows = []
+        with open(self.tracking_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            for row in reader:
+                if len(row) < 5:
+                    continue
+                data = row[0]
+                try:
+                    # numeri sono in row[4] come "12,17,45,59,74,77"
+                    nums = [int(x.strip()) for x in str(row[4]).split(",") if x.strip()]
+                except:
+                    continue
+                if len(nums) != 6:
+                    continue
+                rows.append((data, nums))
+
+        if not rows:
+            messagebox.showinfo("Verifica", "Nessuna schedina valida in tracking.csv.")
+            return
+
+        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        tot_win = 0
+        checked = 0
+        skipped = 0
+        lines = []
+        for data, nums in rows:
+            if data not in draw_days:
+                skipped += 1
+                continue  # giorno senza estrazione reale: non verificabile
+            rec = draws_by_date[data]
+            matches = len(set(nums) & set(rec["nums"]))
+            jolly_hit = 1 if rec["jolly"] and rec["jolly"] in nums else 0
+            premio = premi.get(matches, 0)
+            tot_win += premio
+            checked += 1
+            detail = f" (+Jolly)" if jolly_hit else ""
+            lines.append(
+                f"{data}: {matches} indovinati{detail} -> "
+                f"{'€' + str(premio) if premio else 'nessuna'}"
+            )
+        msg = (
+            f"Verificate: {checked} schedine (giorni con estrazione)\n"
+            f"Saltate: {skipped} (giorni senza estrazione)\n\n"
+        )
+        msg += "\n".join(lines[:50])
+        if len(lines) > 50:
+            msg += f"\n... altri {len(lines) - 50} risultati"
+        msg += f"\n\nVincita totale stimata: €{tot_win}"
+        messagebox.showinfo("Verifica Schedine per Estrazioni", msg)
+
     # ===== INTEGRAZIONE API lotteryresultsfeed.com =====
     API_BASE = "https://www.lotteryresultsfeed.com/api/lottery/lotteries"
 
@@ -757,7 +810,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         if not exists:
             with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
                 w = csv.writer(f)
-                w.writerow([data_str, "", "1.00", "1"] + numeri + [jolly, star])
+                w.writerow([data_str, "", "1.00", "1"] + numeri + [jolly, star] + [0])
             self.load_data()
             self.update_stats_display()
             self.update_results_display()
