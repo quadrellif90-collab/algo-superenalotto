@@ -194,7 +194,7 @@ class SuperenalottoApp:
 
         tk.Button(
             frame,
-            text="Genera Dual Ottimale (ROI 32%)",
+            text="Genera Dual Ottimale (ROI 35%)",
             command=self.generate_optimal_dual,
             bg="#00ff88",
             fg="#1a1a2e",
@@ -433,39 +433,31 @@ class SuperenalottoApp:
             return False
         return True
 
-    def _last_digit_spread(self):
+    def _quartile_spread(self):
         for _ in range(500):
             c = sorted(random.sample(range(1, 91), 6))
-            if self._valid_constraints(c) and len({n % 10 for n in c}) == 6:
-                return c
-        return sorted(random.sample(range(1, 91), 6))
-
-    def _delayed_numbers(self, history):
-        recent = set()
-        for past in history[-20:]:
-            recent.update(past)
-        pool = [n for n in range(1, 91) if n not in recent]
-        for _ in range(500):
-            if len(pool) < 6:
-                break
-            c = sorted(random.sample(pool, 6))
-            if self._valid_constraints(c):
+            if not self._valid_constraints(c):
+                continue
+            q1 = sum(1 for n in c if n <= 22)
+            q2 = sum(1 for n in c if 23 <= n <= 45)
+            q3 = sum(1 for n in c if 46 <= n <= 67)
+            q4 = sum(1 for n in c if n >= 68)
+            if q1 >= 1 and q2 >= 1 and q3 >= 1 and q4 >= 1:
                 return c
         return sorted(random.sample(range(1, 91), 6))
 
     def generate_optimal_dual(self):
-        """Modalita' Dual ottimale (backtest 4226 draw, ROI 32.48%):
-        DelayedNumbers + LastDigitSpread, 2 biglietti per estrazione."""
+        """Modalita' Dual ottimale (backtest 4226 draw, ROI 35.73%):
+        QuartileSpread x2, 2 biglietti per estrazione."""
         if not self.stats:
             messagebox.showwarning("Attenzione", "Carica prima i dati!")
             return
 
-        history = [r["nums"] for r in self.records] if hasattr(self, "records") else []
         self.generated_numbers = []
-        self.generated_numbers.append({"nums": self._last_digit_spread(), "sum": 0})
-        self.generated_numbers[-1]["sum"] = sum(self.generated_numbers[-1]["nums"])
-        delayed = self._delayed_numbers(history)
-        self.generated_numbers.append({"nums": delayed, "sum": sum(delayed)})
+        q1 = self._quartile_spread()
+        self.generated_numbers.append({"nums": q1, "sum": sum(q1)})
+        q2 = self._quartile_spread()
+        self.generated_numbers.append({"nums": q2, "sum": sum(q2)})
 
         self.display_generated_numbers()
         self.save_to_tracking()

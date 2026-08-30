@@ -1,0 +1,314 @@
+﻿{
+    "single":  {
+                   "Mod3Balanced":  {
+                                        "m4":  1,
+                                        "m3":  9,
+                                        "net":  -3086,
+                                        "m2":  190,
+                                        "roi":  26.98
+                                    },
+                   "LastDigitSpread":  {
+                                           "m4":  0,
+                                           "m3":  20,
+                                           "net":  -2951,
+                                           "m2":  215,
+                                           "roi":  30.17
+                                       },
+                   "NoConsecutive":  {
+                                         "m4":  0,
+                                         "m3":  11,
+                                         "net":  -3171,
+                                         "m2":  189,
+                                         "roi":  24.96
+                                     },
+                   "TripleGap":  {
+                                     "m4":  0,
+                                     "m3":  14,
+                                     "net":  -3041,
+                                     "m2":  209,
+                                     "roi":  28.04
+                                 },
+                   "LowHalfBias":  {
+                                       "m4":  0,
+                                       "m3":  6,
+                                       "net":  -3131,
+                                       "m2":  207,
+                                       "roi":  25.91
+                                   },
+                   "QuartileSpread":  {
+                                          "m4":  3,
+                                          "m3":  12,
+                                          "net":  -2716,
+                                          "m2":  218,
+                                          "roi":  35.73
+                                      },
+                   "SumBandTight":  {
+                                        "m4":  0,
+                                        "m3":  11,
+                                        "net":  -3201,
+                                        "m2":  183,
+                                        "roi":  24.25
+                                    }
+               },
+    "bestSingle":  "QuartileSpread",
+    "dual":  {
+                 "NoConsecutive x2":  {
+                                          "m4":  0,
+                                          "roi":  24.96,
+                                          "m3":  22,
+                                          "net":  -6342,
+                                          "spent":  8452,
+                                          "won":  2110,
+                                          "m2":  378
+                                      },
+                 "Mod3Balanced + SumBandTight":  {
+                                                     "m4":  1,
+                                                     "roi":  25.62,
+                                                     "m3":  20,
+                                                     "net":  -6287,
+                                                     "spent":  8452,
+                                                     "won":  2165,
+                                                     "m2":  373
+                                                 },
+                 "LowHalfBias + TripleGap":  {
+                                                 "m4":  0,
+                                                 "roi":  26.98,
+                                                 "m3":  20,
+                                                 "net":  -6172,
+                                                 "spent":  8452,
+                                                 "won":  2280,
+                                                 "m2":  416
+                                             },
+                 "SumBandTight x2":  {
+                                         "m4":  0,
+                                         "roi":  24.25,
+                                         "m3":  22,
+                                         "net":  -6402,
+                                         "spent":  8452,
+                                         "won":  2050,
+                                         "m2":  366
+                                     },
+                 "LowHalfBias + NoConsecutive":  {
+                                                     "m4":  0,
+                                                     "roi":  25.44,
+                                                     "m3":  17,
+                                                     "net":  -6302,
+                                                     "spent":  8452,
+                                                     "won":  2150,
+                                                     "m2":  396
+                                                 },
+                 "Mod3Balanced x2":  {
+                                         "m4":  2,
+                                         "roi":  26.98,
+                                         "m3":  18,
+                                         "net":  -6172,
+                                         "spent":  8452,
+                                         "won":  2280,
+                                         "m2":  380
+                                     },
+                 "QuartileSpread + SumBandTight":  {
+                                                       "m4":  3,
+                                                       "roi":  29.99,
+                                                       "m3":  23,
+                                                       "net":  -5917,
+                                                       "spent":  8452,
+                                                       "won":  2535,
+                                                       "m2":  401
+                                                   },
+                 "NoConsecutive + SumBandTight":  {
+                                                      "m4":  0,
+                                                      "roi":  24.61,
+                                                      "m3":  22,
+                                                      "net":  -6372,
+                                                      "spent":  8452,
+                                                      "won":  2080,
+                                                      "m2":  372
+                                                  },
+                 "LastDigitSpread + QuartileSpread":  {
+                                                          "m4":  3,
+                                                          "roi":  32.95,
+                                                          "m3":  32,
+                                                          "net":  -5667,
+                                                          "spent":  8452,
+                                                          "won":  2785,
+                                                          "m2":  433
+                                                      },
+                 "LowHalfBias x2":  {
+                                        "m4":  0,
+                                        "roi":  25.91,
+                                        "m3":  12,
+                                        "net":  -6262,
+                                        "spent":  8452,
+                                        "won":  2190,
+                                        "m2":  414
+                                    },
+                 "LastDigitSpread + SumBandTight":  {
+                                                        "m4":  0,
+                                                        "roi":  27.21,
+                                                        "m3":  31,
+                                                        "net":  -6152,
+                                                        "spent":  8452,
+                                                        "won":  2300,
+                                                        "m2":  398
+                                                    },
+                 "LastDigitSpread + TripleGap":  {
+                                                     "m4":  0,
+                                                     "roi":  29.11,
+                                                     "m3":  34,
+                                                     "net":  -5992,
+                                                     "spent":  8452,
+                                                     "won":  2460,
+                                                     "m2":  424
+                                                 },
+                 "Mod3Balanced + QuartileSpread":  {
+                                                       "m4":  4,
+                                                       "roi":  31.35,
+                                                       "m3":  21,
+                                                       "net":  -5802,
+                                                       "spent":  8452,
+                                                       "won":  2650,
+                                                       "m2":  408
+                                                   },
+                 "QuartileSpread x2":  {
+                                           "m4":  6,
+                                           "roi":  35.73,
+                                           "m3":  24,
+                                           "net":  -5432,
+                                           "spent":  8452,
+                                           "won":  3020,
+                                           "m2":  436
+                                       },
+                 "LowHalfBias + QuartileSpread":  {
+                                                      "m4":  3,
+                                                      "roi":  30.82,
+                                                      "m3":  18,
+                                                      "net":  -5847,
+                                                      "spent":  8452,
+                                                      "won":  2605,
+                                                      "m2":  425
+                                                  },
+                 "TripleGap x2":  {
+                                      "m4":  0,
+                                      "roi":  28.04,
+                                      "m3":  28,
+                                      "net":  -6082,
+                                      "spent":  8452,
+                                      "won":  2370,
+                                      "m2":  418
+                                  },
+                 "Mod3Balanced + TripleGap":  {
+                                                  "m4":  1,
+                                                  "roi":  27.51,
+                                                  "m3":  23,
+                                                  "net":  -6127,
+                                                  "spent":  8452,
+                                                  "won":  2325,
+                                                  "m2":  399
+                                              },
+                 "LastDigitSpread + LowHalfBias":  {
+                                                       "m4":  0,
+                                                       "roi":  28.04,
+                                                       "m3":  26,
+                                                       "net":  -6082,
+                                                       "spent":  8452,
+                                                       "won":  2370,
+                                                       "m2":  422
+                                                   },
+                 "NoConsecutive + TripleGap":  {
+                                                   "m4":  0,
+                                                   "roi":  26.5,
+                                                   "m3":  25,
+                                                   "net":  -6212,
+                                                   "spent":  8452,
+                                                   "won":  2240,
+                                                   "m2":  398
+                                               },
+                 "LastDigitSpread + Mod3Balanced":  {
+                                                        "m4":  1,
+                                                        "roi":  28.57,
+                                                        "m3":  29,
+                                                        "net":  -6037,
+                                                        "spent":  8452,
+                                                        "won":  2415,
+                                                        "m2":  405
+                                                    },
+                 "LowHalfBias + Mod3Balanced":  {
+                                                    "m4":  1,
+                                                    "roi":  26.44,
+                                                    "m3":  15,
+                                                    "net":  -6217,
+                                                    "spent":  8452,
+                                                    "won":  2235,
+                                                    "m2":  397
+                                                },
+                 "SumBandTight + TripleGap":  {
+                                                  "m4":  0,
+                                                  "roi":  26.15,
+                                                  "m3":  25,
+                                                  "net":  -6242,
+                                                  "spent":  8452,
+                                                  "won":  2210,
+                                                  "m2":  392
+                                              },
+                 "LastDigitSpread x2":  {
+                                            "m4":  0,
+                                            "roi":  30.17,
+                                            "m3":  40,
+                                            "net":  -5902,
+                                            "spent":  8452,
+                                            "won":  2550,
+                                            "m2":  430
+                                        },
+                 "LastDigitSpread + NoConsecutive":  {
+                                                         "m4":  0,
+                                                         "roi":  27.57,
+                                                         "m3":  31,
+                                                         "net":  -6122,
+                                                         "spent":  8452,
+                                                         "won":  2330,
+                                                         "m2":  404
+                                                     },
+                 "QuartileSpread + TripleGap":  {
+                                                    "m4":  3,
+                                                    "roi":  31.89,
+                                                    "m3":  26,
+                                                    "net":  -5757,
+                                                    "spent":  8452,
+                                                    "won":  2695,
+                                                    "m2":  427
+                                                },
+                 "Mod3Balanced + NoConsecutive":  {
+                                                      "m4":  1,
+                                                      "roi":  25.97,
+                                                      "m3":  20,
+                                                      "net":  -6257,
+                                                      "spent":  8452,
+                                                      "won":  2195,
+                                                      "m2":  379
+                                                  },
+                 "LowHalfBias + SumBandTight":  {
+                                                    "m4":  0,
+                                                    "roi":  25.08,
+                                                    "m3":  17,
+                                                    "net":  -6332,
+                                                    "spent":  8452,
+                                                    "won":  2120,
+                                                    "m2":  390
+                                                },
+                 "NoConsecutive + QuartileSpread":  {
+                                                        "m4":  3,
+                                                        "roi":  30.35,
+                                                        "m3":  23,
+                                                        "net":  -5887,
+                                                        "spent":  8452,
+                                                        "won":  2565,
+                                                        "m2":  407
+                                                    }
+             },
+    "bestDual":  "QuartileSpread x2",
+    "metadata":  {
+                     "dualCount":  28,
+                     "singleCount":  7,
+                     "draws":  4226
+                 }
+}

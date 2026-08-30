@@ -1,0 +1,18 @@
+Draws: 4226
+Pools: LDS=500 Sum=500 NoCon=500 Tri=34 Low=500 Mod=500 Quart=500
+Strategie nuove: 7 | Combos dual: 28
+
+--- SINGOLE (1 biglietto) ---
+  LastDigitSpread : Net -2951 | M2:215 M3:20 M4:0 | ROI 30.17%
+  LowHalfBias : Net -3131 | M2:207 M3:6 M4:0 | ROI 25.91%
+  Mod3Balanced : Net -3086 | M2:190 M3:9 M4:1 | ROI 26.98%
+  NoConsecutive : Net -3171 | M2:189 M3:11 M4:0 | ROI 24.96%
+  QuartileSpread : Net -2716 | M2:218 M3:12 M4:3 | ROI 35.73%
+  SumBandTight : Net -3201 | M2:183 M3:11 M4:0 | ROI 24.25%
+  TripleGap : Net -3041 | M2:209 M3:14 M4:0 | ROI 28.04%
+
+--- DUALI (2 biglietti) ---
+
+BEST SINGLE: QuartileSpread (Net -2716, ROI 35.73%)
+BEST DUAL:  QuartileSpread x2 (Net -5432, ROI 35.73%)
+Saved C:\Users\Siviglino\Desktop\Superenalotto\nuove_strategie2.json
