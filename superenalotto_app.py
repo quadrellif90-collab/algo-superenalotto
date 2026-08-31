@@ -462,6 +462,15 @@ class SuperenalottoApp:
             font=("Segoe UI", 9),
             activebackground=self.C_GREEN_DK,
         ).pack(pady=3)
+        tk.Button(
+            frame,
+            text="Mostra Grafici",
+            command=self.show_charts,
+            bg=self.C_GREEN,
+            fg="white",
+            font=("Segoe UI", 9),
+            activebackground=self.C_GREEN_DK,
+        ).pack(pady=3)
 
     def compute_my_plays(self):
         """Legge tracking.csv, verifica contro estrazioni reali, calcola ROI personale."""
@@ -529,6 +538,63 @@ class SuperenalottoApp:
             f"Giocate: {spent}\nSpeso: €{spent}\nVinto: €{won}\n"
             f"ROI: {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}",
         )
+
+    def show_charts(self):
+        """Genera grafici matplotlib (distribuzione somme, frequenza numeri, ROI)
+        e li mostra in una finestra tkinter."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from collections import Counter
+        import tempfile, os
+
+        if not self.records:
+            messagebox.showwarning("Attenzione", "Nessun dato per i grafici!")
+            return
+
+        sums = [r["sum"] for r in self.records]
+        fig, axes = plt.subplots(2, 1, figsize=(8, 7))
+        fig.patch.set_facecolor("#eef7f0")
+
+        # 1) Distribuzione somme (istogramma) + fascia QuartileSpread
+        ax = axes[0]
+        ax.hist(sums, bins=40, color="#1a8f3c", alpha=0.8, edgecolor="white")
+        ax.axvspan(246, 306, color="#ffd200", alpha=0.3, label="Fascia QuartileSpread")
+        ax.set_title("Distribuzione Somme Estrazioni", color="#0f6b2c", fontsize=11)
+        ax.set_xlabel("Somma 6 numeri")
+        ax.set_ylabel("Frequenza")
+        ax.legend()
+
+        # 2) Frequenza numeri 1-90
+        ax = axes[1]
+        cnt = Counter(n for r in self.records for n in r["nums"])
+        nums = list(range(1, 91))
+        freq = [cnt.get(n, 0) for n in nums]
+        ax.bar(nums, freq, color="#1a8f3c", width=0.8)
+        ax.set_title("Frequenza Numeri (1-90)", color="#0f6b2c", fontsize=11)
+        ax.set_xlabel("Numero")
+        ax.set_ylabel("Volte uscito")
+        ax.set_xticks(range(0, 91, 10))
+
+        plt.tight_layout()
+        tmp = tempfile.gettempdir()
+        path = os.path.join(tmp, "superenalotto_charts.png")
+        fig.savefig(path, dpi=100, facecolor="#eef7f0")
+        plt.close(fig)
+
+        # mostra in Toplevel
+        win = tk.Toplevel(self.root)
+        win.title("Grafici SuperEnalotto")
+        win.configure(bg="#eef7f0")
+        try:
+            from PIL import Image, ImageTk
+            img = Image.open(path)
+            photo = ImageTk.PhotoImage(img)
+            lbl = tk.Label(win, image=photo, bg="#eef7f0")
+            lbl.image = photo
+            lbl.pack(padx=10, pady=10)
+        except Exception:
+            tk.Label(win, text=f"Grafico salvato: {path}", bg="#eef7f0").pack(padx=10, pady=10)
 
     def evaluate_and_show(self):
         """Ricalcola ROI rolling su ultime 50 estrazioni e mostra la classifica."""
