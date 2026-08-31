@@ -42,6 +42,8 @@ class SuperenalottoApp:
         self.check_draw_day()
         # Auto-fetch ultima estrazione da API all'avvio (nessun tasto manuale)
         self.fetch_latest_draw()
+        # Verifica automatica schedine non verificate per giorni con estrazione
+        self.auto_check_new_draws()
         # autoridimensionamento fluido
         self.root.bind("<Configure>", self._on_resize)
         # icona app (verde stile SuperEnalotto)
@@ -843,11 +845,11 @@ class SuperenalottoApp:
 
         with open(self.tracking_path, "a", encoding="utf-8") as f:
             if not file_exists:
-                f.write("data,giornata,budget,schedine,numeri,somma\n")
+                f.write("data,giornata,budget,schedine,numeri,somma,verificato\n")
 
             for sched in self.generated_numbers:
                 nums_str = "-".join(str(n) for n in sched["nums"])
-                f.write(f"{today},{day_name},1.00,1,{nums_str},{sched['sum']}\n")
+                f.write(f"{today},{day_name},1.00,1,{nums_str},{sched['sum']},0\n")
 
         self.status_label.config(
             text=f"Tracking salvato! ({len(self.generated_numbers)} schedine)"
@@ -953,15 +955,15 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         message += f"\nVincita totale stimata: €{tot_win}"
         messagebox.showinfo("Verifica Vincita", message)
 
-    def verify_all_schedines(self):
-        """Verifica tutte le schedine generate in tracking.csv, ma SOLO per i giorni
-        in cui esiste un'estrazione reale nel database (mar/ghi/ven/sab)."""
+    def verify_all_schedines(self, only_unchecked=False):
+        """Verifica le schedine in tracking.csv SOLO per i giorni con estrazione reale.
+        only_unchecked=True: verifica solo le righe con verificato=0 (auto all'avvio).
+        Marca le righe verificate con verificato=1."""
         if not os.path.exists(self.tracking_path):
-            messagebox.showinfo("Verifica", "Nessuna schedina salvata in tracking.csv.")
+            if not only_unchecked:
+                messagebox.showinfo("Verifica", "Nessuna schedina salvata in tracking.csv.")
             return
-        # mappa data estrazione -> record reale
         draws_by_date = {r["data"]: r for r in self.records}
-        # giorni con estrazione (dal DB caricato)
         draw_days = set(draws_by_date.keys())
 
         rows = []
@@ -973,16 +975,22 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
                     continue
                 data = row[0]
                 try:
-                    # numeri sono in row[4] come "12,17,45,59,74,77"
-                    nums = [int(x.strip()) for x in str(row[4]).split(",") if x.strip()]
+                    # numeri sono in row[4] come "12-17-45-59-74-77"
+                    nums = [int(x.strip()) for x in str(row[4]).split("-") if x.strip()]
                 except:
                     continue
                 if len(nums) != 6:
                     continue
-                rows.append((data, nums))
+                verified = row[6] == "1" if len(row) > 6 else False
+                if only_unchecked and verified:
+                    continue
+                rows.append((data, nums, verified))
 
         if not rows:
-            messagebox.showinfo("Verifica", "Nessuna schedina valida in tracking.csv.")
+            if not only_unchecked:
+                messagebox.showinfo("Verifica", "Nessuna schedina valida in tracking.csv.")
+            else:
+                messagebox.showinfo("Verifica automatica", "Tutte le schedine già verificate.")
             return
 
         premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
@@ -990,21 +998,28 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         checked = 0
         skipped = 0
         lines = []
-        for data, nums in rows:
+        verified_dates = set()
+        for data, nums, was_verified in rows:
             if data not in draw_days:
-                skipped += 1
-                continue  # giorno senza estrazione reale: non verificabile
+                if not only_unchecked:
+                    skipped += 1
+                continue
             rec = draws_by_date[data]
             matches = len(set(nums) & set(rec["nums"]))
             jolly_hit = 1 if rec["jolly"] and rec["jolly"] in nums else 0
             premio = premi.get(matches, 0)
             tot_win += premio
             checked += 1
+            verified_dates.add(data)
             detail = f" (+Jolly)" if jolly_hit else ""
             lines.append(
                 f"{data}: {matches} indovinati{detail} -> "
                 f"{'€' + str(premio) if premio else 'nessuna'}"
             )
+        # marca verificate nel CSV
+        self._mark_verified(verified_dates)
+
+        title = "Verifica Schedine per Estrazioni" if not only_unchecked else "Verifica Automatica"
         msg = (
             f"Verificate: {checked} schedine (giorni con estrazione)\n"
             f"Saltate: {skipped} (giorni senza estrazione)\n\n"
@@ -1013,7 +1028,32 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         if len(lines) > 50:
             msg += f"\n... altri {len(lines) - 50} risultati"
         msg += f"\n\nVincita totale stimata: €{tot_win}"
-        messagebox.showinfo("Verifica Schedine per Estrazioni", msg)
+        messagebox.showinfo(title, msg)
+
+    def _mark_verified(self, dates):
+        """Scrive verificato=1 nelle righe di tracking.csv dei giorni in `dates`."""
+        if not dates or not os.path.exists(self.tracking_path):
+            return
+        tmp = self.tracking_path + ".tmp"
+        with open(self.tracking_path, "r", encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            w = csv.writer(f)
+            for i, row in enumerate(rows):
+                if i == 0:
+                    w.writerow(row)
+                    continue
+                if len(row) >= 7 and row[0] in dates:
+                    row[6] = "1"
+                elif len(row) < 7:
+                    row.append("1" if (len(row) > 0 and row[0] in dates) else "0")
+                w.writerow(row)
+        os.replace(tmp, self.tracking_path)
+
+    def auto_check_new_draws(self):
+        """All'avvio: verifica automaticamente le schedine generate per giorni con
+        estrazione reale non ancora verificate (verificato=0)."""
+        self.verify_all_schedines(only_unchecked=True)
 
     # ===== INTEGRAZIONE API lotteryresultsfeed.com =====
     API_BASE = "https://www.lotteryresultsfeed.com/api/lottery/lotteries"
