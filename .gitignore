@@ -33,3 +33,4 @@ desktop.ini
 *.xlsx
 ~$*.csv
 ~$*.xlsxalgo_performance.json
+dist/algo_performance.json
