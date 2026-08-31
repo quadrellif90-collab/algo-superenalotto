@@ -40,8 +40,16 @@ class SuperenalottoApp:
         self.update_jackpot()
         self.update_stats_display()
         self.check_draw_day()
-        # Auto-fetch ultima estrazione da API all'avvio (nessun tasto manuale)
+        # Auto-fetch ultima estrazione da API all'avvio
         self.fetch_latest_draw()
+        # Auto-aggiornamento storico da superenalotto.com/archivio (manca nella API)
+        try:
+            self.scrape_historical(pages=2)
+            self.load_data()
+            self.update_stats_display()
+            self.update_results_display()
+        except Exception:
+            pass
         # Verifica automatica schedine non verificate per giorni con estrazione
         self.auto_check_new_draws()
         # autoridimensionamento fluido
@@ -395,6 +403,15 @@ class SuperenalottoApp:
             font=("Segoe UI", 9),
             activebackground=self.C_GREEN_DK,
         ).pack(side="left", padx=4)
+        tk.Button(
+            btn_frame,
+            text="Aggiorna Storico",
+            command=self.update_historical_ui,
+            bg=self.C_GREEN,
+            fg="white",
+            font=("Segoe UI", 9),
+            activebackground=self.C_GREEN_DK,
+        ).pack(side="left", padx=4)
 
     def evaluate_and_show(self):
         """Ricalcola ROI rolling su ultime 50 estrazioni e mostra la classifica."""
@@ -411,6 +428,22 @@ class SuperenalottoApp:
         lines.append("")
         lines.append("Auto userà il #1 finché la finestra non cambia.")
         messagebox.showinfo("Valutazione Algoritmi", "\n".join(lines))
+
+    def update_historical_ui(self):
+        """Bottone: aggiorna lo storico estrazioni da superenalotto.com/archivio."""
+        try:
+            added, scraped = self.scrape_historical(pages=3)
+            self.load_data()
+            self.update_stats_display()
+            self.update_results_display()
+            messagebox.showinfo(
+                "Aggiorna Storico",
+                f"Scansione: {scraped} estrazioni\n"
+                f"Nuove aggiunte: {added}\n"
+                f"Totale nel database: {len(self.records)}",
+            )
+        except Exception as e:
+            messagebox.showerror("Errore", f"Scraping storico fallito:\n{str(e)[:200]}")
 
     def _on_resize(self, event=None):
         # ricalcola scrollregion e larghezza contenuto
@@ -1057,6 +1090,60 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
 
     # ===== INTEGRAZIONE API lotteryresultsfeed.com =====
     API_BASE = "https://www.lotteryresultsfeed.com/api/lottery/lotteries"
+
+    def scrape_historical(self, pages=1):
+        """Scrape storico estrazioni da superenalotto.com/archivio e aggiunge
+        le mancanti al CSV (anti-duplicato per data).
+        Ritorna (aggiunte, totale_scrape)."""
+        import urllib.request, ssl, re
+        from datetime import datetime
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        added = 0
+        scraped = 0
+        existing = {r["data"] for r in self.records}
+        for pg in range(1, pages + 1):
+            url = "https://www.superenalotto.com/archivio" + (f"/{pg}" if pg > 1 else "")
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                html = urllib.request.urlopen(req, timeout=20, context=ctx).read().decode("utf-8", "ignore")
+            except Exception:
+                break
+            dates = re.findall(r'boxarchiveDate">([^<]+)<', html)
+            # numeri: 6 normali + 1 jolly (red). I jolly sono in boxArchiveNumberRed
+            nums_norm = re.findall(r'boxArchiveNumber">(\d+)<', html)
+            nums_red = re.findall(r'boxArchiveNumberRed">(\d+)<', html)
+            # raggruppa: ogni estrazione = 6 normali + 1 jolly
+            estrazioni = []
+            i = 0
+            j = 0
+            while i + 6 <= len(nums_norm) and j < len(nums_red):
+                n6 = [int(x) for x in nums_norm[i:i + 6]]
+                jolly = int(nums_red[j])
+                estrazioni.append((n6, jolly))
+                i += 6
+                j += 1
+            # parse data testuale -> ISO
+            for (n6, jolly), dstr in zip(estrazioni, dates):
+                try:
+                    dd, mm, yyyy = dstr.split()
+                    mesi = {"gennaio":1,"febbraio":2,"marzo":3,"aprile":4,"maggio":5,"giugno":6,
+                            "luglio":7,"agosto":8,"settembre":9,"ottobre":10,"novembre":11,"dicembre":12}
+                    iso = f"{yyyy}-{mesi.get(mm,1):02d}-{int(dd):02d}"
+                except Exception as ex:
+                    continue
+                scraped += 1
+                if iso in existing:
+                    continue
+                # scrivi nel CSV
+                with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
+                    w = csv.writer(f)
+                    w.writerow([iso, "", ""] + n6 + [jolly, 0])
+                existing.add(iso)
+                added += 1
+        return added, scraped
 
     def fetch_latest_draw(self):
         """Scarica l'ultima estrazione SuperEnalotto da lotteryresultsfeed.com.
