@@ -166,6 +166,7 @@ class SuperenalottoApp:
         self.create_prizes_section(right)
         self.create_results_section(right)
         self.create_tracking_section(right)
+        self.create_my_plays_section(left)
 
     def create_stats_section(self, parent):
         frame = tk.LabelFrame(
@@ -412,6 +413,122 @@ class SuperenalottoApp:
             font=("Segoe UI", 9),
             activebackground=self.C_GREEN_DK,
         ).pack(side="left", padx=4)
+
+    def create_my_plays_section(self, parent):
+        frame = tk.LabelFrame(
+            parent,
+            text="LE MIE GIOCATE (ROI personale)",
+            bg=self.C_CARD,
+            fg=self.C_GREEN,
+            font=("Segoe UI", 11, "bold"),
+            padx=10,
+            pady=10,
+        )
+        frame.pack(fill="x", pady=5)
+
+        # statistiche
+        stats_row = tk.Frame(frame, bg=self.C_CARD)
+        stats_row.pack(fill="x", pady=2)
+        self.my_stats_labels = {}
+        for i, key in enumerate(["Speso", "Vinto", "ROI %", "M2", "M3", "M4", "Schedine"]):
+            lbl = tk.Label(
+                stats_row,
+                text=f"{key}: 0",
+                bg=self.C_GREEN_LT,
+                fg=self.C_GREEN_DK,
+                font=("Segoe UI", 9, "bold"),
+                padx=6,
+                pady=3,
+            )
+            lbl.grid(row=0, column=i, padx=3, sticky="ew")
+            stats_row.columnconfigure(i, weight=1)
+            self.my_stats_labels[key] = lbl
+
+        # tabella giocate recenti
+        cols = ("Data", "Numeri", "Somma", "Esito", "Verif")
+        tree = ttk.Treeview(frame, columns=cols, show="headings", height=5)
+        for col in cols:
+            tree.heading(col, text=col)
+            tree.column(col, width=90, anchor="center")
+        tree.pack(fill="both", expand=True, pady=3)
+        self.my_plays_tree = tree
+
+        tk.Button(
+            frame,
+            text="Calcola ROI Personale",
+            command=self.compute_my_plays,
+            bg=self.C_GREEN,
+            fg="white",
+            font=("Segoe UI", 9),
+            activebackground=self.C_GREEN_DK,
+        ).pack(pady=3)
+
+    def compute_my_plays(self):
+        """Legge tracking.csv, verifica contro estrazioni reali, calcola ROI personale."""
+        if not os.path.exists(self.tracking_path):
+            messagebox.showinfo("Le Mie Giocate", "Nessuna giocata in tracking.csv.")
+            return
+        draws_by_date = {r["data"]: r for r in self.records}
+        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+
+        spent = 0
+        won = 0
+        m2 = m3 = m4 = 0
+        rows = []
+        with open(self.tracking_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            for row in reader:
+                if len(row) < 6:
+                    continue
+                data = row[0]
+                try:
+                    nums = [int(x.strip()) for x in str(row[4]).split("-") if x.strip()]
+                except:
+                    continue
+                if len(nums) != 6:
+                    continue
+                spent += 1  # 1 euro a schedina
+                esito = "in attesa"
+                if data in draws_by_date:
+                    rec = draws_by_date[data]
+                    matches = len(set(nums) & set(rec["nums"]))
+                    p = premi.get(matches, 0)
+                    won += p
+                    if matches == 2:
+                        m2 += 1
+                        esito = f"M2 +€{p}"
+                    elif matches == 3:
+                        m3 += 1
+                        esito = f"M3 +€{p}"
+                    elif matches >= 4:
+                        m4 += 1
+                        esito = f"M{matches} +€{p}"
+                    else:
+                        esito = f"{matches} nil"
+                rows.append((data, "-".join(map(str, nums)), row[5], esito, row[6] if len(row) > 6 else "0"))
+
+        roi = (won / spent * 100) if spent else 0
+        # aggiorna label
+        self.my_stats_labels["Speso"].config(text=f"Speso: €{spent}")
+        self.my_stats_labels["Vinto"].config(text=f"Vinto: €{won}")
+        self.my_stats_labels["ROI %"].config(text=f"ROI %: {roi:.1f}")
+        self.my_stats_labels["M2"].config(text=f"M2: {m2}")
+        self.my_stats_labels["M3"].config(text=f"M3: {m3}")
+        self.my_stats_labels["M4"].config(text=f"M4: {m4}")
+        self.my_stats_labels["Schedine"].config(text=f"Schedine: {spent}")
+
+        # tabella (ultime 20)
+        for it in self.my_plays_tree.get_children():
+            self.my_plays_tree.delete(it)
+        for r in rows[-20:]:
+            self.my_plays_tree.insert("", "end", values=r)
+
+        messagebox.showinfo(
+            "ROI Personale",
+            f"Giocate: {spent}\nSpeso: €{spent}\nVinto: €{won}\n"
+            f"ROI: {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}",
+        )
 
     def evaluate_and_show(self):
         """Ricalcola ROI rolling su ultime 50 estrazioni e mostra la classifica."""
