@@ -30,10 +30,12 @@ class SuperenalottoApp:
         self.csv_path = "superenalotto.csv"
         self.api_key = self._load_api_key()
         self.tracking_path = "tracking.csv"
+        self.db_path = "superenalotto.db"
         self.records = []
         self.stats = {}
         self.generated_numbers = []
 
+        self._init_db()
         self.setup_styles()
         self.create_widgets()
         self.load_data()
@@ -473,52 +475,56 @@ class SuperenalottoApp:
         ).pack(pady=3)
 
     def compute_my_plays(self):
-        """Legge tracking.csv, verifica contro estrazioni reali, calcola ROI personale."""
-        if not os.path.exists(self.tracking_path):
-            messagebox.showinfo("Le Mie Giocate", "Nessuna giocata in tracking.csv.")
-            return
-        draws_by_date = {r["data"]: r for r in self.records}
+        """Legge giocate dal DB, verifica contro estrazioni reali, calcola ROI personale."""
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute("SELECT id, data, numeri, somma, verificato, vincita FROM giocate ORDER BY id")
+        rows_db = c.fetchall()
         premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
 
         spent = 0
         won = 0
         m2 = m3 = m4 = 0
         rows = []
-        with open(self.tracking_path, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            next(reader, None)
-            for row in reader:
-                if len(row) < 6:
-                    continue
-                data = row[0]
-                try:
-                    nums = [int(x.strip()) for x in str(row[4]).split("-") if x.strip()]
-                except:
-                    continue
-                if len(nums) != 6:
-                    continue
-                spent += 1  # 1 euro a schedina
-                esito = "in attesa"
-                if data in draws_by_date:
-                    rec = draws_by_date[data]
-                    matches = len(set(nums) & set(rec["nums"]))
-                    p = premi.get(matches, 0)
-                    won += p
-                    if matches == 2:
-                        m2 += 1
-                        esito = f"M2 +€{p}"
-                    elif matches == 3:
-                        m3 += 1
-                        esito = f"M3 +€{p}"
-                    elif matches >= 4:
+        for gid, data, numeri_str, somma, verificato, vincita in rows_db:
+            try:
+                nums = [int(x) for x in numeri_str.split("-") if x]
+            except:
+                continue
+            if len(nums) != 6:
+                continue
+            spent += 1
+            esito = "in attesa"
+            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly FROM estrazioni WHERE data=?", (data,))
+            rec = c.fetchone()
+            if rec:
+                matches = len(set(nums) & set(rec[:6]))
+                p = premi.get(matches, 0)
+                won += p
+                if matches == 2:
+                    m2 += 1
+                    esito = f"M2 +€{p}"
+                elif matches == 3:
+                    m3 += 1
+                    esito = f"M3 +€{p}"
+                elif matches >= 4:
+                    m4 += 1
+                    esito = f"M{matches} +€{p}"
+                else:
+                    esito = f"{matches} nil"
+            else:
+                # gia verificata in passato ma estrazione non nel DB: usa vincita salvata
+                if verificato and vincita:
+                    won += vincita
+                    if vincita >= 100:
                         m4 += 1
-                        esito = f"M{matches} +€{p}"
-                    else:
-                        esito = f"{matches} nil"
-                rows.append((data, "-".join(map(str, nums)), row[5], esito, row[6] if len(row) > 6 else "0"))
+                    elif vincita >= 10:
+                        m3 += 1
+                    elif vincita >= 5:
+                        m2 += 1
+            rows.append((data, numeri_str, somma, esito, verificato))
 
         roi = (won / spent * 100) if spent else 0
-        # aggiorna label
         self.my_stats_labels["Speso"].config(text=f"Speso: €{spent}")
         self.my_stats_labels["Vinto"].config(text=f"Vinto: €{won}")
         self.my_stats_labels["ROI %"].config(text=f"ROI %: {roi:.1f}")
@@ -527,7 +533,6 @@ class SuperenalottoApp:
         self.my_stats_labels["M4"].config(text=f"M4: {m4}")
         self.my_stats_labels["Schedine"].config(text=f"Schedine: {spent}")
 
-        # tabella (ultime 20)
         for it in self.my_plays_tree.get_children():
             self.my_plays_tree.delete(it)
         for r in rows[-20:]:
@@ -638,12 +643,35 @@ class SuperenalottoApp:
         except Exception:
             pass
 
-    def load_data(self):
-        if not os.path.exists(self.csv_path):
-            messagebox.showwarning("Attenzione", f"File {self.csv_path} non trovato!")
-            return
+    def _init_db(self):
+        """Crea/collega superenalotto.db e importa il CSV se il DB e' vuoto."""
+        import sqlite3
+        self.conn = sqlite3.connect(self.db_path)
+        c = self.conn.cursor()
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS estrazioni (
+                data TEXT PRIMARY KEY, n1 INT, n2 INT, n3 INT, n4 INT, n5 INT, n6 INT,
+                jolly INT, star INT)"""
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS giocate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, numeri TEXT,
+                somma INT, verificato INT DEFAULT 0, vincita INT DEFAULT 0)"""
+        )
+        self.conn.commit()
+        # import CSV se estrazioni vuote
+        c.execute("SELECT COUNT(*) FROM estrazioni")
+        if c.fetchone()[0] == 0 and os.path.exists(self.csv_path):
+            self._import_csv_to_db()
+        # import tracking.csv in giocate se giocate vuote
+        c.execute("SELECT COUNT(*) FROM giocate")
+        if c.fetchone()[0] == 0 and os.path.exists(self.tracking_path):
+            self._import_tracking_to_db()
 
-        self.records = []
+    def _import_csv_to_db(self):
+        """Importa superenalotto.csv (formato A o B) nel DB, normalizzando date a ISO."""
+        import sqlite3
+        c = self.conn.cursor()
         with open(self.csv_path, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             next(reader)
@@ -651,10 +679,6 @@ class SuperenalottoApp:
                 if len(row) < 9:
                     continue
                 try:
-                    # Il CSV ha formati misti:
-                    #  A) data, concorso, n1..n6, jolly, star
-                    #  B) data, '', prezzo, concorso, n1..n6, jolly, star
-                    # Prova A, fallback B.
                     try:
                         nums = [int(row[2]), int(row[3]), int(row[4]),
                                 int(row[5]), int(row[6]), int(row[7])]
@@ -666,7 +690,6 @@ class SuperenalottoApp:
                         jolly = int(row[10]) if len(row) > 10 and row[10] else 0
                         star = int(row[11]) if len(row) > 11 and row[11] else 0
                     data_raw = row[0]
-                    # normalizza sempre a ISO YYYY-MM-DD (gestisce formati misti)
                     try:
                         if "/" in data_raw:
                             data_norm = datetime.strptime(data_raw, "%d/%m/%Y").strftime("%Y-%m-%d")
@@ -674,20 +697,68 @@ class SuperenalottoApp:
                             data_norm = datetime.strptime(data_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
                     except:
                         data_norm = data_raw
-                    self.records.append(
-                        {
-                            "data": data_norm,
-                            "nums": nums,
-                            "sum": sum(nums),
-                            "jolly": jolly,
-                            "star": star,
-                        }
+                    c.execute(
+                        "INSERT OR IGNORE INTO estrazioni VALUES (?,?,?,?,?,?,?,?,?)",
+                        (data_norm, nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], jolly, star),
                     )
                 except:
                     continue
+        self.conn.commit()
 
+    def _import_tracking_to_db(self):
+        import sqlite3
+        c = self.conn.cursor()
+        with open(self.tracking_path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            for row in reader:
+                if len(row) < 6:
+                    continue
+                try:
+                    nums = [int(x.strip()) for x in str(row[4]).split("-") if x.strip()]
+                except:
+                    continue
+                if len(nums) != 6:
+                    continue
+                verif = row[6] if len(row) > 6 and row[6] in ("0", "1") else "0"
+                c.execute(
+                    "INSERT INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,?)",
+                    (row[0], "-".join(map(str, nums)), int(row[5]), int(verif)),
+                )
+        self.conn.commit()
+
+    def load_data(self):
+        """Carica estrazioni dal DB in self.records (ordinato per data)."""
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute("SELECT data,n1,n2,n3,n4,n5,n6,jolly,star FROM estrazioni ORDER BY data")
+        self.records = []
+        for data, n1, n2, n3, n4, n5, n6, jolly, star in c.fetchall():
+            nums = [n1, n2, n3, n4, n5, n6]
+            self.records.append(
+                {"data": data, "nums": nums, "sum": sum(nums), "jolly": jolly, "star": star}
+            )
         self.calculate_stats()
         self.update_results_display()
+
+    def db_add_estrazione(self, data_iso, nums, jolly, star):
+        """Inserisce un'estrazione nel DB se non esiste (anti-dup per PK)."""
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO estrazioni VALUES (?,?,?,?,?,?,?,?,?)",
+            (data_iso, nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], jolly, star),
+        )
+        self.conn.commit()
+
+    def db_save_giocata(self, data_iso, nums, somma):
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute(
+            "INSERT INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
+            (data_iso, "-".join(map(str, nums)), somma),
+        )
+        self.conn.commit()
 
     def calculate_stats(self):
         if not self.records:
@@ -1052,20 +1123,21 @@ class SuperenalottoApp:
 
     def save_to_tracking(self):
         today = datetime.now().strftime("%Y-%m-%d")
-        day_name = datetime.now().strftime("%A")
 
         if not self.generated_numbers:
             return
 
-        file_exists = os.path.exists(self.tracking_path)
+        for sched in self.generated_numbers:
+            self.db_save_giocata(today, sched["nums"], sched["sum"])
 
+        # backup su CSV per trasparenza/export
+        file_exists = os.path.exists(self.tracking_path)
         with open(self.tracking_path, "a", encoding="utf-8") as f:
             if not file_exists:
                 f.write("data,giornata,budget,schedine,numeri,somma,verificato\n")
-
             for sched in self.generated_numbers:
                 nums_str = "-".join(str(n) for n in sched["nums"])
-                f.write(f"{today},{day_name},1.00,1,{nums_str},{sched['sum']},0\n")
+                f.write(f"{today},,,,{nums_str},{sched['sum']},0\n")
 
         self.status_label.config(
             text=f"Tracking salvato! ({len(self.generated_numbers)} schedine)"
@@ -1172,41 +1244,17 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         messagebox.showinfo("Verifica Vincita", message)
 
     def verify_all_schedines(self, only_unchecked=False):
-        """Verifica le schedine in tracking.csv SOLO per i giorni con estrazione reale.
-        only_unchecked=True: verifica solo le righe con verificato=0 (auto all'avvio).
-        Marca le righe verificate con verificato=1."""
-        if not os.path.exists(self.tracking_path):
-            if not only_unchecked:
-                messagebox.showinfo("Verifica", "Nessuna schedina salvata in tracking.csv.")
-            return
-        draws_by_date = {r["data"]: r for r in self.records}
-        draw_days = set(draws_by_date.keys())
-
-        rows = []
-        with open(self.tracking_path, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            for row in reader:
-                if len(row) < 5:
-                    continue
-                data = row[0]
-                try:
-                    # numeri sono in row[4] come "12-17-45-59-74-77"
-                    nums = [int(x.strip()) for x in str(row[4]).split("-") if x.strip()]
-                except:
-                    continue
-                if len(nums) != 6:
-                    continue
-                verified = row[6] == "1" if len(row) > 6 else False
-                if only_unchecked and verified:
-                    continue
-                rows.append((data, nums, verified))
-
+        """Verifica le giocate nel DB SOLO per i giorni con estrazione reale.
+        only_unchecked=True: verifica solo verificato=0 (auto all'avvio)."""
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute("SELECT id, data, numeri FROM giocate")
+        rows = c.fetchall()
         if not rows:
             if not only_unchecked:
-                messagebox.showinfo("Verifica", "Nessuna schedina valida in tracking.csv.")
+                messagebox.showinfo("Verifica", "Nessuna giocata salvata.")
             else:
-                messagebox.showinfo("Verifica automatica", "Tutte le schedine già verificate.")
+                messagebox.showinfo("Verifica automatica", "Nessuna giocata da verificare.")
             return
 
         premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
@@ -1214,26 +1262,41 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         checked = 0
         skipped = 0
         lines = []
-        verified_dates = set()
-        for data, nums, was_verified in rows:
-            if data not in draw_days:
+        for gid, data, numeri_str in rows:
+            try:
+                nums = [int(x) for x in numeri_str.split("-") if x]
+            except:
+                continue
+            if len(nums) != 6:
+                continue
+            # salta se gia verificata (solo in modalita auto)
+            c.execute("SELECT verificato FROM giocate WHERE id=?", (gid,))
+            if only_unchecked and c.fetchone()[0] == 1:
+                continue
+            # cerca estrazione reale per quella data
+            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly FROM estrazioni WHERE data=?", (data,))
+            rec = c.fetchone()
+            if not rec:
                 if not only_unchecked:
                     skipped += 1
                 continue
-            rec = draws_by_date[data]
-            matches = len(set(nums) & set(rec["nums"]))
-            jolly_hit = 1 if rec["jolly"] and rec["jolly"] in nums else 0
+            rec_nums = list(rec[:6])
+            matches = len(set(nums) & set(rec_nums))
+            jolly_hit = 1 if rec[6] and rec[6] in nums else 0
             premio = premi.get(matches, 0)
             tot_win += premio
             checked += 1
-            verified_dates.add(data)
+            # aggiorna DB
+            c.execute(
+                "UPDATE giocate SET verificato=1, vincita=? WHERE id=?",
+                (premio, gid),
+            )
             detail = f" (+Jolly)" if jolly_hit else ""
             lines.append(
                 f"{data}: {matches} indovinati{detail} -> "
                 f"{'€' + str(premio) if premio else 'nessuna'}"
             )
-        # marca verificate nel CSV
-        self._mark_verified(verified_dates)
+        self.conn.commit()
 
         title = "Verifica Schedine per Estrazioni" if not only_unchecked else "Verifica Automatica"
         msg = (
@@ -1247,28 +1310,13 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         messagebox.showinfo(title, msg)
 
     def _mark_verified(self, dates):
-        """Scrive verificato=1 nelle righe di tracking.csv dei giorni in `dates`."""
-        if not dates or not os.path.exists(self.tracking_path):
-            return
-        tmp = self.tracking_path + ".tmp"
-        with open(self.tracking_path, "r", encoding="utf-8") as f:
-            rows = list(csv.reader(f))
-        with open(tmp, "w", encoding="utf-8", newline="") as f:
-            w = csv.writer(f)
-            for i, row in enumerate(rows):
-                if i == 0:
-                    w.writerow(row)
-                    continue
-                if len(row) >= 7 and row[0] in dates:
-                    row[6] = "1"
-                elif len(row) < 7:
-                    row.append("1" if (len(row) > 0 and row[0] in dates) else "0")
-                w.writerow(row)
-        os.replace(tmp, self.tracking_path)
+        """Aggiorna verificato=1 nelle giocate dei giorni in `dates` (legacy CSV)."""
+        # con il DB la verifica aggiorna direttamente; metodo mantenuto per compatibilita'
+        pass
 
     def auto_check_new_draws(self):
-        """All'avvio: verifica automaticamente le schedine generate per giorni con
-        estrazione reale non ancora verificate (verificato=0)."""
+        """All'avvio: verifica automaticamente le giocate non verificate per giorni
+        con estrazione reale."""
         self.verify_all_schedines(only_unchecked=True)
 
     # ===== INTEGRAZIONE API lotteryresultsfeed.com =====
@@ -1276,10 +1324,9 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
 
     def scrape_historical(self, pages=1):
         """Scrape storico estrazioni da superenalotto.com/archivio e aggiunge
-        le mancanti al CSV (anti-duplicato per data).
+        le mancanti al DB (anti-dup per PK data).
         Ritorna (aggiunte, totale_scrape)."""
         import urllib.request, ssl, re
-        from datetime import datetime
 
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
@@ -1295,10 +1342,8 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
             except Exception:
                 break
             dates = re.findall(r'boxarchiveDate">([^<]+)<', html)
-            # numeri: 6 normali + 1 jolly (red). I jolly sono in boxArchiveNumberRed
             nums_norm = re.findall(r'boxArchiveNumber">(\d+)<', html)
             nums_red = re.findall(r'boxArchiveNumberRed">(\d+)<', html)
-            # raggruppa: ogni estrazione = 6 normali + 1 jolly
             estrazioni = []
             i = 0
             j = 0
@@ -1308,22 +1353,18 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
                 estrazioni.append((n6, jolly))
                 i += 6
                 j += 1
-            # parse data testuale -> ISO
             for (n6, jolly), dstr in zip(estrazioni, dates):
                 try:
                     dd, mm, yyyy = dstr.split()
                     mesi = {"gennaio":1,"febbraio":2,"marzo":3,"aprile":4,"maggio":5,"giugno":6,
                             "luglio":7,"agosto":8,"settembre":9,"ottobre":10,"novembre":11,"dicembre":12}
                     iso = f"{yyyy}-{mesi.get(mm,1):02d}-{int(dd):02d}"
-                except Exception as ex:
+                except Exception:
                     continue
                 scraped += 1
                 if iso in existing:
                     continue
-                # scrivi nel CSV
-                with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
-                    w = csv.writer(f)
-                    w.writerow([iso, "", ""] + n6 + [jolly, 0])
+                self.db_add_estrazione(iso, n6, jolly, 0)
                 existing.add(iso)
                 added += 1
         return added, scraped
@@ -1399,12 +1440,10 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         # aggiorna jackpot label (in palio, da config) e ultimo montepremi (da API)
         if jp > 0:
             self.last_prize_label.config(text=f"€{jp:,.0f}")
-        # append to CSV if not already present
+        # append to DB if not already present (PK data = anti-dup)
         exists = any(r["data"] == data_str for r in self.records)
         if not exists:
-            with open(self.csv_path, "a", encoding="utf-8", newline="") as f:
-                w = csv.writer(f)
-                w.writerow([data_str, "", ""] + numeri + [jolly, star])
+            self.db_add_estrazione(data_str, numeri, jolly, star)
             self.load_data()
             self.update_stats_display()
             self.update_results_display()
