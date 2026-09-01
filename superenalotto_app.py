@@ -1106,25 +1106,25 @@ class SuperenalottoApp:
         self.save_to_tracking()
 
     def delete_schedine(self):
-        """Apre una finestra per cancellare schedine salvate (per data)."""
+        """Apre una finestra per cancellare schedine salvate UNA ALLA VOLTA."""
         import sqlite3
         c = self.conn.cursor()
-        c.execute("SELECT DISTINCT data FROM giocate ORDER BY data DESC")
-        dates = [r[0] for r in c.fetchall()]
-        if not dates:
+        c.execute("SELECT id, data, numeri, somma FROM giocate ORDER BY id DESC")
+        rows = c.fetchall()
+        if not rows:
             messagebox.showinfo("Cancella Schedine", "Nessuna giocata salvata.")
             return
 
         win = tk.Toplevel(self.root)
-        win.title("Cancella Schedine")
-        win.geometry("320x350")
+        win.title("Cancella Schedine (una alla volta)")
+        win.geometry("420x380")
         win.configure(bg=self.C_CARD)
         win.transient(self.root)
         win.grab_set()
 
         tk.Label(
             win,
-            text="Seleziona le date da cancellare:",
+            text="Seleziona le schedine da cancellare:",
             bg=self.C_CARD,
             fg=self.C_GREEN_DK,
             font=("Segoe UI", 10, "bold"),
@@ -1137,29 +1137,29 @@ class SuperenalottoApp:
             bg="white",
             fg=self.C_GREEN_DK,
         )
-        for d in dates:
-            c.execute("SELECT COUNT(*) FROM giocate WHERE data=?", (d,))
-            cnt = c.fetchone()[0]
-            listbox.insert(tk.END, f"{d}  ({cnt} schedine)")
+        # mappa idx -> id
+        self._delete_map = {}
+        for i, (gid, data, numeri, somma) in enumerate(rows):
+            listbox.insert(tk.END, f"{data}  |  {numeri}  |  somma {somma}")
+            self._delete_map[i] = gid
         listbox.pack(fill="both", expand=True, padx=10, pady=5)
 
         def do_delete():
             sel = listbox.curselection()
             if not sel:
-                messagebox.showwarning("Attenzione", "Seleziona almeno una data.")
+                messagebox.showwarning("Attenzione", "Seleziona almeno una schedina.")
                 return
             if not messagebox.askyesno(
                 "Conferma",
-                f"Cancellare {len(sel)} date selezionate?",
+                f"Cancellare {len(sel)} schedine selezionate?",
             ):
                 return
             for idx in sel:
-                date_str = listbox.get(idx).split("  ")[0]
-                c.execute("DELETE FROM giocate WHERE data=?", (date_str,))
+                gid = self._delete_map[idx]
+                c.execute("DELETE FROM giocate WHERE id=?", (gid,))
             self.conn.commit()
-            # aggiorna backup CSV
             self._refresh_tracking_csv()
-            messagebox.showinfo("Fatto", "Schedine cancellate.")
+            messagebox.showinfo("Fatto", f"{len(sel)} schedine cancellate.")
             win.destroy()
 
         tk.Button(
