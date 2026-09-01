@@ -473,6 +473,15 @@ class SuperenalottoApp:
             font=("Segoe UI", 9),
             activebackground=self.C_GREEN_DK,
         ).pack(pady=3)
+        tk.Button(
+            frame,
+            text="Cancella Schedine",
+            command=self.delete_schedine,
+            bg="#e74c3c",
+            fg="white",
+            font=("Segoe UI", 9, "bold"),
+            activebackground="#c0392b",
+        ).pack(pady=3)
 
     def compute_my_plays(self):
         """Legge giocate dal DB, verifica contro estrazioni reali, calcola ROI personale."""
@@ -1067,10 +1076,21 @@ class SuperenalottoApp:
         return perf, best
 
     def generate_optimal_dual(self):
-        """Genera 1-5 schedine con QuartileSpread (strategia unica, UNA SOLA VOLTA).
-        Le altre strategie servono solo per backtest (evaluate_and_show)."""
+        """Genera 1-5 schedine con QuartileSpread (strategia unica, UNA SOLA VOLTA per data).
+        BLOCCATO se esistono giocate per la data odierna (cancellale prima)."""
         if not self.stats:
             messagebox.showwarning("Attenzione", "Carica prima i dati!")
+            return
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        c = self.conn.cursor()
+        c.execute("SELECT COUNT(*) FROM giocate WHERE data=?", (today,))
+        if c.fetchone()[0] > 0:
+            messagebox.showwarning(
+                "Bloccato",
+                f"Esistono già schedine per il {today}.\n"
+                "Cancellale prima di generarne di nuove.",
+            )
             return
 
         fn = self._quartile_spread
@@ -1084,6 +1104,82 @@ class SuperenalottoApp:
         self.status_label.config(text=f"QuartileSpread | {n_schedine} schedine")
         self.display_generated_numbers()
         self.save_to_tracking()
+
+    def delete_schedine(self):
+        """Apre una finestra per cancellare schedine salvate (per data)."""
+        import sqlite3
+        c = self.conn.cursor()
+        c.execute("SELECT DISTINCT data FROM giocate ORDER BY data DESC")
+        dates = [r[0] for r in c.fetchall()]
+        if not dates:
+            messagebox.showinfo("Cancella Schedine", "Nessuna giocata salvata.")
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("Cancella Schedine")
+        win.geometry("320x350")
+        win.configure(bg=self.C_CARD)
+        win.transient(self.root)
+        win.grab_set()
+
+        tk.Label(
+            win,
+            text="Seleziona le date da cancellare:",
+            bg=self.C_CARD,
+            fg=self.C_GREEN_DK,
+            font=("Segoe UI", 10, "bold"),
+        ).pack(pady=8)
+
+        listbox = tk.Listbox(
+            win,
+            selectmode="multiple",
+            font=("Segoe UI", 10),
+            bg="white",
+            fg=self.C_GREEN_DK,
+        )
+        for d in dates:
+            c.execute("SELECT COUNT(*) FROM giocate WHERE data=?", (d,))
+            cnt = c.fetchone()[0]
+            listbox.insert(tk.END, f"{d}  ({cnt} schedine)")
+        listbox.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def do_delete():
+            sel = listbox.curselection()
+            if not sel:
+                messagebox.showwarning("Attenzione", "Seleziona almeno una data.")
+                return
+            if not messagebox.askyesno(
+                "Conferma",
+                f"Cancellare {len(sel)} date selezionate?",
+            ):
+                return
+            for idx in sel:
+                date_str = listbox.get(idx).split("  ")[0]
+                c.execute("DELETE FROM giocate WHERE data=?", (date_str,))
+            self.conn.commit()
+            # aggiorna backup CSV
+            self._refresh_tracking_csv()
+            messagebox.showinfo("Fatto", "Schedine cancellate.")
+            win.destroy()
+
+        tk.Button(
+            win,
+            text="Cancella Selezionate",
+            command=do_delete,
+            bg="#e74c3c",
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(pady=10)
+
+    def _refresh_tracking_csv(self):
+        """Riscrive tracking.csv dal DB (backup)."""
+        c = self.conn.cursor()
+        c.execute("SELECT data, numeri, somma, verificato FROM giocate ORDER BY id")
+        rows = c.fetchall()
+        with open(self.tracking_path, "w", encoding="utf-8") as f:
+            f.write("data,giornata,budget,schedine,numeri,somma,verificato\n")
+            for data, numeri, somma, verificato in rows:
+                f.write(f"{data},,,,{numeri},{somma},{verificato}\n")
 
     def display_generated_numbers(self):
         for widget in self.numbers_frame.winfo_children():
