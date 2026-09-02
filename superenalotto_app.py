@@ -489,7 +489,7 @@ class SuperenalottoApp:
         c = self.conn.cursor()
         c.execute("SELECT id, data, numeri, somma, verificato, vincita FROM giocate ORDER BY id")
         rows_db = c.fetchall()
-        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
 
         spent = 0
         won = 0
@@ -858,11 +858,13 @@ class SuperenalottoApp:
             )
 
     def check_draw_day(self):
-        today = datetime.now().strftime("%A")
-        draw_days = ["Tuesday", "Thursday", "Friday", "Saturday"]
+        today = datetime.now()
+        draw_dows = {1, 3, 4, 5}  # Tuesday, Thursday, Friday, Saturday
+        today_dow = today.weekday()
 
-        if today in draw_days:
-            self.status_label.config(text=f"Oggi e' {today} - GIORNO DI ESTRAZIONE!")
+        if today_dow in draw_dows:
+            giorni = {1: "Martedì", 3: "Giovedì", 4: "Venerdì", 5: "Sabato"}
+            self.status_label.config(text=f"Oggi è {giorni[today_dow]} - GIORNO DI ESTRAZIONE!")
             self.status_label.config(fg="#00ff00")
         else:
             next_draw = self.get_next_draw_date()
@@ -871,15 +873,19 @@ class SuperenalottoApp:
 
     def get_next_draw_date(self):
         today = datetime.now()
-        draw_days = {"Tuesday": 1, "Thursday": 3, "Friday": 4, "Saturday": 5}
+        draw_dows = [1, 3, 4, 5]  # Tuesday, Thursday, Friday, Saturday
         today_dow = today.weekday()
 
-        for day_offset in sorted(draw_days.values()):
-            days_ahead = (day_offset - today_dow) % 7
-            if days_ahead == 0:
-                days_ahead = 7
-            next_date = today + timedelta(days=days_ahead)
-            return next_date.strftime("%d/%m/%Y")
+        # se oggi è giorno di estrazione, ritorna oggi
+        if today_dow in draw_dows:
+            return today.strftime("%d/%m/%Y")
+
+        # altrimenti cerca il prossimo giorno di estrazione
+        for days_ahead in range(1, 8):
+            next_dow = (today_dow + days_ahead) % 7
+            if next_dow in draw_dows:
+                next_date = today + timedelta(days=days_ahead)
+                return next_date.strftime("%d/%m/%Y")
 
         return "N/A"
 
@@ -1008,7 +1014,7 @@ class SuperenalottoApp:
         if len(self.records) < n_draws:
             n_draws = len(self.records)
         window = self.records[-n_draws:]
-        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
         results = {}
         for name, cfg in self.STRATEGIES.items():
             fn = getattr(self, cfg["fn"])
@@ -1319,7 +1325,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         last_draw = self.records[-1]["nums"]
         jolly = self.records[-1].get("jolly", 0)
         star = self.records[-1].get("star", 0)
-        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
         message = (
             f"Ultima estrazione: {' '.join(str(n) for n in sorted(last_draw))}"
             f"  Jolly:{jolly}  Star:{star}\n\n"
@@ -1353,7 +1359,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
                 messagebox.showinfo("Verifica automatica", "Nessuna giocata da verificare.")
             return
 
-        premi = {2: 5, 3: 10, 4: 100, 5: 1000, 6: 1000000}
+        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
         tot_win = 0
         checked = 0
         skipped = 0

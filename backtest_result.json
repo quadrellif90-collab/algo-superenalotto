@@ -1,13 +1,13 @@
 ﻿{
-    "avgMatches":  0.058,
-    "match2":  27,
+    "avgMatches":  0.04,
+    "match2":  19,
     "match6":  0,
     "drawsTested":  500,
     "totalTickets":  500,
     "match4":  0,
     "match5":  0,
-    "netProfit":  -480,
-    "match3":  2,
+    "netProfit":  -490,
+    "match3":  1,
     "totalSpent":  500,
-    "totalPrizeWon":  20
+    "totalPrizeWon":  10
 }

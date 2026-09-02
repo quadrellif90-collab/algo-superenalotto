@@ -1,0 +1,28 @@
+﻿========================================
+SUPERENALOTTO - REPORT SETTIMANALE
+========================================
+Generato: 01/09/2026 19:00
+Periodo: 2026-08-25 - 2026-09-01
+----------------------------------------
+DATI STORICI
+Estrazioni totali: 4194
+Periodo dati: 1997-12-03 - 2026-08-29
+
+STATISTICHE ATTUALI
+Media somme: 276.6
+Mediana: 277
+Deviazione std: 61.98
+
+TRACKING SETTIMANALE
+Giocate: 8
+Speso: EUR 
+Vincite: EUR 
+Netto: EUR 0
+----------------------------------------
+ULTIME ESTRAZIONI
+2026-08-18: 10 16 24 25 39 66
+2026-08-17: 18 24 69 71 73 82
+2026-08-14: 9 18 20 25 53 90
+2026-08-13: 2 7 16 29 57 84
+2026-08-29: 1 1 12 17 45 59
+========================================
