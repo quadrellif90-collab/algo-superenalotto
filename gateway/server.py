@@ -17,11 +17,26 @@ PORT = 8766
 
 
 def get_base_dir():
-    """Restituisce la directory base (compatibile con PyInstaller)."""
+    """Restituisce la directory base (compatibile con PyInstaller).
+    Per web usa sempre _MEIPASS se frozen, per config/jackpot cerca anche accanto all'EXE (portable)."""
     if getattr(sys, 'frozen', False):
-        # PyInstaller
         return sys._MEIPASS
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def get_config_path():
+    """Portable: config.json prima accanto all'EXE, poi in MEIPASS."""
+    if getattr(sys, 'frozen', False):
+        exe_cfg = os.path.join(os.path.dirname(sys.executable), "config.json")
+        if os.path.exists(exe_cfg):
+            return exe_cfg
+        try:
+            mei_cfg = os.path.join(sys._MEIPASS, "config.json")
+            if os.path.exists(mei_cfg):
+                return mei_cfg
+        except Exception:
+            pass
+        return exe_cfg
+    return os.path.join(get_base_dir(), "config.json")
 
 
 class SuperenalottoHandler(SimpleHTTPRequestHandler):
@@ -55,17 +70,14 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             schedine = self.engine.genera_schedine(n)
             self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
         elif path == "/api/jackpot":
-            # Legge jackpot da config.json (fallback fisso)
             jackpot_val = "€218.700.000"
             try:
-                base = get_base_dir()
-                cfg_path = os.path.join(base, "config.json")
+                cfg_path = get_config_path()
                 if os.path.exists(cfg_path):
                     with open(cfg_path, "r", encoding="utf-8") as f:
                         cfg = json.load(f)
                         jp = cfg.get("jackpot")
                         if jp:
-                            # formatta come €XXX.XXX.XXX se numerico
                             if isinstance(jp, (int, float)):
                                 jackpot_val = f"€{jp:,.0f}".replace(",", ".")
                             else:

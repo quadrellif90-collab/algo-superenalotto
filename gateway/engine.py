@@ -42,14 +42,42 @@ class SuperenalottoEngine:
         self.stats = {}
         self._init_db()
 
-    def _init_db(self):
+    def _get_data_path(self, filename):
+        """Portable: DB/TRACKING sempre accanto all'EXE (scrivibile), CSV/config da MEIPASS se non presenti."""
         if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)
+            exe_dir = os.path.dirname(sys.executable)
+            p_exe = os.path.join(exe_dir, filename)
+            # DB e tracking devono stare accanto all'EXE per persistenza portable
+            if filename in (DB_PATH, TRACKING_PATH, "tracking.csv"):
+                return p_exe
+            # per file di sola lettura (csv, config, web) usa exe se presente altrimenti MEIPASS
+            if os.path.exists(p_exe):
+                return p_exe
+            try:
+                p_mei = os.path.join(sys._MEIPASS, filename)
+                if os.path.exists(p_mei):
+                    return p_mei
+            except Exception:
+                pass
+            return p_exe
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.db_path = os.path.join(base_dir, DB_PATH)
-        self.csv_path = os.path.join(base_dir, CSV_PATH)
-        self.tracking_path = os.path.join(base_dir, TRACKING_PATH)
+            return os.path.join(base_dir, filename)
+
+    def _init_db(self):
+        self.db_path = self._get_data_path(DB_PATH)
+        self.csv_path = self._get_data_path(CSV_PATH)
+        self.tracking_path = self._get_data_path(TRACKING_PATH)
+        # Se DB non esiste ma CSV è in MEIPASS, copialo accanto all'EXE per prima importazione
+        if getattr(sys, 'frozen', False) and not os.path.exists(self.db_path):
+            # assicura che csv_path punti a MEIPASS esistente per import
+            if not os.path.exists(self.csv_path):
+                try:
+                    alt = os.path.join(sys._MEIPASS, CSV_PATH)
+                    if os.path.exists(alt):
+                        self.csv_path = alt
+                except Exception:
+                    pass
         
         self.conn = sqlite3.connect(self.db_path)
         c = self.conn.cursor()
