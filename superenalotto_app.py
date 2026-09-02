@@ -484,12 +484,13 @@ class SuperenalottoApp:
         ).pack(pady=3)
 
     def compute_my_plays(self):
-        """Legge giocate dal DB, verifica contro estrazioni reali, calcola ROI personale."""
+        """Legge giocate dal DB, verifica contro estrazioni reali, calcola ROI personale.
+        Usa i premi REALI dal DB (p2,p3,p4,p5,p5j,p6). Fallback a stime se 0."""
         import sqlite3
         c = self.conn.cursor()
         c.execute("SELECT id, data, numeri, somma, verificato, vincita FROM giocate ORDER BY id")
         rows_db = c.fetchall()
-        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
+        premi_default = {2: 5, 3: 25, 4: 296, 5: 25847, 6: 1000000}
 
         spent = 0
         won = 0
@@ -504,11 +505,28 @@ class SuperenalottoApp:
                 continue
             spent += 1
             esito = "in attesa"
-            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly FROM estrazioni WHERE data=?", (data,))
+            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly,p2,p3,p4,p5,p5j,p6 FROM estrazioni WHERE data=?", (data,))
             rec = c.fetchone()
             if rec:
                 matches = len(set(nums) & set(rec[:6]))
-                p = premi.get(matches, 0)
+                jolly = rec[6]
+                jolly_hit = 1 if jolly and jolly in nums else 0
+                p2, p3, p4, p5, p5j, p6 = rec[7], rec[8], rec[9], rec[10], rec[11], rec[12]
+                if matches == 6:
+                    p = p6 if p6 > 0 else premi_default[6]
+                elif matches == 5:
+                    if jolly_hit:
+                        p = p5j if p5j > 0 else premi_default[5]
+                    else:
+                        p = p5 if p5 > 0 else premi_default[5]
+                elif matches == 4:
+                    p = p4 if p4 > 0 else premi_default[4]
+                elif matches == 3:
+                    p = p3 if p3 > 0 else premi_default[3]
+                elif matches == 2:
+                    p = p2 if p2 > 0 else premi_default[2]
+                else:
+                    p = 0
                 won += p
                 if matches == 2:
                     m2 += 1
@@ -660,8 +678,19 @@ class SuperenalottoApp:
         c.execute(
             """CREATE TABLE IF NOT EXISTS estrazioni (
                 data TEXT PRIMARY KEY, n1 INT, n2 INT, n3 INT, n4 INT, n5 INT, n6 INT,
-                jolly INT, star INT)"""
+                jolly INT, star INT,
+                p2 REAL DEFAULT 0, p3 REAL DEFAULT 0, p4 REAL DEFAULT 0,
+                p5 REAL DEFAULT 0, p5j REAL DEFAULT 0, p6 REAL DEFAULT 0)"""
         )
+        # migration: se esiste vecchio schema senza premi, aggiungo colonne
+        try:
+            c.execute("SELECT p2 FROM estrazioni LIMIT 0")
+        except:
+            for col in ["p2", "p3", "p4", "p5", "p5j", "p6"]:
+                try:
+                    c.execute(f"ALTER TABLE estrazioni ADD COLUMN {col} REAL DEFAULT 0")
+                except:
+                    pass
         c.execute(
             """CREATE TABLE IF NOT EXISTS giocate (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, numeri TEXT,
@@ -750,13 +779,29 @@ class SuperenalottoApp:
         self.calculate_stats()
         self.update_results_display()
 
-    def db_add_estrazione(self, data_iso, nums, jolly, star):
-        """Inserisce un'estrazione nel DB se non esiste (anti-dup per PK)."""
+    def db_add_estrazione(self, data_iso, nums, jolly, star, premi=None):
+        """Inserisce un'estrazione nel DB se non esiste (anti-dup per PK).
+        premi: dict opzionale con chiavi p2,p3,p4,p5,p5j,p6."""
+        import sqlite3
+        c = self.conn.cursor()
+        p = premi or {}
+        c.execute(
+            "INSERT OR IGNORE INTO estrazioni VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (data_iso, nums[0], nums[1], nums[2], nums[3], nums[4], nums[5],
+             jolly, star,
+             p.get("p2", 0), p.get("p3", 0), p.get("p4", 0),
+             p.get("p5", 0), p.get("p5j", 0), p.get("p6", 0)),
+        )
+        self.conn.commit()
+
+    def db_update_premi(self, data_iso, premi):
+        """Aggiorna i premi reali di un'estrazione nel DB."""
         import sqlite3
         c = self.conn.cursor()
         c.execute(
-            "INSERT OR IGNORE INTO estrazioni VALUES (?,?,?,?,?,?,?,?,?)",
-            (data_iso, nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], jolly, star),
+            "UPDATE estrazioni SET p2=?, p3=?, p4=?, p5=?, p5j=?, p6=? WHERE data=?",
+            (premi.get("p2", 0), premi.get("p3", 0), premi.get("p4", 0),
+             premi.get("p5", 0), premi.get("p5j", 0), premi.get("p6", 0), data_iso),
         )
         self.conn.commit()
 
@@ -768,6 +813,43 @@ class SuperenalottoApp:
             (data_iso, "-".join(map(str, nums)), somma),
         )
         self.conn.commit()
+
+    def scrape_premi_estrazione(self, data_iso):
+        """Scarica i premi reali da superenalotto.com/risultati-estrazione/DD-MM-YYYY.
+        Ritorna dict con p2,p3,p4,p5,p5j,p6 (0 se non disponibile)."""
+        import urllib.request
+        import re
+        try:
+            dt = datetime.strptime(data_iso, "%Y-%m-%d")
+            url = f"https://www.superenalotto.com/risultati-estrazione/{dt.strftime('%d-%m-%Y')}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+            # cerca la tabella Quote SuperEnalotto
+            premi = {}
+            # pattern: "5 punti</td><td...>14.650,92 €</td>"
+            for match in re.finditer(r'(\d+)\s*punti(?:\s*\+\s*Jolly)?\s*</td>\s*<td[^>]*>\s*([\d.,]+)\s*€', html):
+                punti = int(match.group(1))
+                valore = float(match.group(2).replace(".", "").replace(",", "."))
+                if punti == 2:
+                    premi["p2"] = valore
+                elif punti == 3:
+                    premi["p3"] = valore
+                elif punti == 4:
+                    premi["p4"] = valore
+                elif punti == 5:
+                    premi["p5"] = valore
+            # 5+Jolly
+            m = re.search(r'5\s*punti\s*\+\s*Jolly\s*</td>\s*<td[^>]*>\s*([\d.,]+)\s*€', html)
+            if m:
+                premi["p5j"] = float(m.group(1).replace(".", "").replace(",", "."))
+            # 6 punti (jackpot)
+            m = re.search(r'6\s*punti\s*</td>\s*<td[^>]*>\s*([\d.,]+)\s*€', html)
+            if m:
+                premi["p6"] = float(m.group(1).replace(".", "").replace(",", "."))
+            return premi
+        except:
+            return {}
 
     def calculate_stats(self):
         if not self.records:
@@ -1014,7 +1096,7 @@ class SuperenalottoApp:
         if len(self.records) < n_draws:
             n_draws = len(self.records)
         window = self.records[-n_draws:]
-        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
+        premi = {2: 5, 3: 25, 4: 296, 5: 25847, 6: 1000000}
         results = {}
         for name, cfg in self.STRATEGIES.items():
             fn = getattr(self, cfg["fn"])
@@ -1325,7 +1407,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
         last_draw = self.records[-1]["nums"]
         jolly = self.records[-1].get("jolly", 0)
         star = self.records[-1].get("star", 0)
-        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
+        premi = {2: 5, 3: 25, 4: 296, 5: 25847, 6: 1000000}
         message = (
             f"Ultima estrazione: {' '.join(str(n) for n in sorted(last_draw))}"
             f"  Jolly:{jolly}  Star:{star}\n\n"
@@ -1347,6 +1429,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
 
     def verify_all_schedines(self, only_unchecked=False):
         """Verifica le giocate nel DB SOLO per i giorni con estrazione reale.
+        Usa i premi REALI dal DB (p2,p3,p4,p5,p5j,p6). Fallback a stime se 0.
         only_unchecked=True: verifica solo verificato=0 (auto all'avvio)."""
         import sqlite3
         c = self.conn.cursor()
@@ -1359,7 +1442,7 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
                 messagebox.showinfo("Verifica automatica", "Nessuna giocata da verificare.")
             return
 
-        premi = {2: 5, 3: 10, 4: 100, 5: 100000, 6: 1000000}
+        premi_default = {2: 5, 3: 25, 4: 296, 5: 25847, 6: 1000000}
         tot_win = 0
         checked = 0
         skipped = 0
@@ -1375,17 +1458,34 @@ Giorni estrazione: Martedi, Giovedi, Venerdi, Sabato
             c.execute("SELECT verificato FROM giocate WHERE id=?", (gid,))
             if only_unchecked and c.fetchone()[0] == 1:
                 continue
-            # cerca estrazione reale per quella data
-            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly FROM estrazioni WHERE data=?", (data,))
+            # cerca estrazione reale per quella data (con premi)
+            c.execute("SELECT n1,n2,n3,n4,n5,n6,jolly,p2,p3,p4,p5,p5j,p6 FROM estrazioni WHERE data=?", (data,))
             rec = c.fetchone()
             if not rec:
                 if not only_unchecked:
                     skipped += 1
                 continue
             rec_nums = list(rec[:6])
+            jolly = rec[6]
             matches = len(set(nums) & set(rec_nums))
-            jolly_hit = 1 if rec[6] and rec[6] in nums else 0
-            premio = premi.get(matches, 0)
+            jolly_hit = 1 if jolly and jolly in nums else 0
+            # premi reali dal DB (fallback a default se 0)
+            p2, p3, p4, p5, p5j, p6 = rec[7], rec[8], rec[9], rec[10], rec[11], rec[12]
+            if matches == 6:
+                premio = p6 if p6 > 0 else premi_default[6]
+            elif matches == 5:
+                if jolly_hit:
+                    premio = p5j if p5j > 0 else premi_default[5]
+                else:
+                    premio = p5 if p5 > 0 else premi_default[5]
+            elif matches == 4:
+                premio = p4 if p4 > 0 else premi_default[4]
+            elif matches == 3:
+                premio = p3 if p3 > 0 else premi_default[3]
+            elif matches == 2:
+                premio = p2 if p2 > 0 else premi_default[2]
+            else:
+                premio = 0
             tot_win += premio
             checked += 1
             # aggiorna DB
