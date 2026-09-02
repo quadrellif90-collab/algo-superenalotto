@@ -85,6 +85,13 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
             self._json_response({"jackpot": jackpot_val})
+        elif path == "/api/premi":
+            self._json_response(self.engine.get_premi())
+        elif path == "/api/valuta":
+            n = int(parse_qs(parsed.query).get("n", [50])[0])
+            self._json_response(self.engine.valuta_strategie(n))
+        elif path == "/api/grafici":
+            self._json_response(self.engine.get_grafici())
         else:
             super().do_GET()
 
@@ -130,6 +137,9 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             if gid:
                 self.engine.cancella_giocata(gid)
             self._json_response({"ok": True})
+        elif path == "/api/aggiorna_storico":
+            result = self.engine.aggiorna_storico()
+            self._json_response(result)
         else:
             self.send_error(404)
 

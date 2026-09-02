@@ -1,20 +1,20 @@
 :root {
-    --bg: #0f1117;
-    --bg-card: #1a1d27;
-    --bg-hover: #242836;
-    --border: #2a2e3d;
-    --text: #e4e6f0;
-    --text-muted: #8b8fa8;
-    --accent: #6366f1;
-    --accent-hover: #818cf8;
-    --success: #22c55e;
-    --success-dark: #16a34a;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --info: #3b82f6;
+    --bg: #eef7f0;
+    --bg-card: #ffffff;
+    --bg-hover: #d4f0dd;
+    --border: #c8e6c9;
+    --text: #1a2e22;
+    --text-muted: #5a7a66;
+    --accent: #1a8f3c;
+    --accent-hover: #0f6b2c;
+    --success: #1a8f3c;
+    --success-dark: #0f6b2c;
+    --warning: #ffd200;
+    --danger: #c62828;
+    --info: #1a8f3c;
     --radius: 12px;
     --radius-sm: 8px;
-    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    --shadow: 0 4px 16px rgba(26,143,60,0.12);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -38,9 +38,12 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 16px 24px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border);
+    background: var(--accent);
+    border-bottom: 3px solid var(--accent-hover);
+    color: white;
 }
+.header h1, .header .jackpot-value, .header .next-value { color: white; }
+.header .jackpot-label, .header .next-label { color: #d4f0dd; }
 
 .header-left {
     display: flex;
@@ -54,12 +57,12 @@ body {
 }
 
 .version {
-    background: var(--accent);
-    color: white;
+    background: var(--warning);
+    color: var(--accent-hover);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .header-right {
@@ -93,10 +96,36 @@ body {
     color: var(--text);
 }
 
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 24px;
+    background: #d4f0dd;
+    border-bottom: 2px solid var(--border);
+}
+.tab {
+    padding: 8px 16px;
+    border: none;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+}
+.tab.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+.tab-content { animation: fade 0.2s; }
+@keyframes fade { from {opacity:0} to {opacity:1} }
+
 /* Main */
 .main {
-    display: grid;
-    grid-template-columns: 320px 1fr 320px;
+    display: flex;
     gap: 20px;
     padding: 20px 24px;
     flex: 1;

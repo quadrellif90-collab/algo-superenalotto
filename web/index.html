@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuperEnalotto</title>
+    <title>SuperEnalotto v8.1</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app">
-        <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1>🎰 SuperEnalotto</h1>
+                <h1>🍀 SuperEnalotto</h1>
                 <span class="version">v8.1</span>
+                <span style="margin-left:12px;font-size:11px;opacity:0.9;">QuartileSpread • 4235 estrazioni</span>
             </div>
             <div class="header-right">
                 <div class="jackpot">
                     <span class="jackpot-label">JACKPOT</span>
-                    <span class="jackpot-value" id="jackpot">€218.700.000</span>
+                    <span class="jackpot-value" id="jackpot">€210.000.000</span>
                 </div>
                 <div class="next-draw" id="nextDraw">
                     <span class="next-label">Prossima estrazione</span>
@@ -26,118 +26,131 @@
             </div>
         </header>
 
-        <!-- Main Content -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="gioca">🎲 Gioca</button>
+            <button class="tab" data-tab="stats">📊 Statistiche</button>
+            <button class="tab" data-tab="premi">🏆 Premi</button>
+            <button class="tab" data-tab="storico">🎱 Storico</button>
+            <button class="tab" data-tab="analisi">📈 Analisi</button>
+        </nav>
+
         <main class="main">
-            <!-- Left Panel: Generatore -->
-            <section class="panel generator">
-                <h2>📊 Generatore Schedine</h2>
-                <p class="subtitle">Strategia QuartileSpread (ROI 35.73%)</p>
-                
-                <div class="form-row">
-                    <label for="numSchedine">Numero schedine:</label>
-                    <select id="numSchedine">
-                        <option value="1">1</option>
-                        <option value="2" selected>2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                    </select>
-                </div>
+            <!-- TAB: GIOCA (3 colonne come prima) -->
+            <div class="tab-content active" id="tab-gioca" style="display:grid; grid-template-columns:320px 1fr 320px; gap:20px; width:100%;">
+                <section class="panel generator">
+                    <h2>📊 Generatore Schedine</h2>
+                    <p class="subtitle">Strategia QuartileSpread — 1 per quartile, somma Q1-Q3, max 2/decade, max 1 >80</p>
+                    <div class="form-row">
+                        <label for="numSchedine">Numero schedine:</label>
+                        <select id="numSchedine">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-generate" id="btnGenera">🍀 GENERA SCHEDINE</button>
+                    <div class="generated" id="generated"></div>
+                    <button class="btn btn-success btn-save" id="btnSalva" style="display:none;">💾 SALVA SCHEDINE</button>
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Le altre strategie (HotCold, AntiRecent...) restano per backtest.</p>
+                </section>
 
-                <button class="btn btn-primary btn-generate" id="btnGenera">
-                    🎲 GENERA SCHEDINE
-                </button>
+                <section class="panel my-plays">
+                    <h2>📋 Le Mie Giocate</h2>
+                    <div class="stats-row">
+                        <div class="stat"><span class="stat-label">Speso</span><span class="stat-value" id="statSpeso">€0</span></div>
+                        <div class="stat"><span class="stat-label">Vinto</span><span class="stat-value" id="statVinto">€0</span></div>
+                        <div class="stat"><span class="stat-label">ROI</span><span class="stat-value" id="statRoi">0%</span></div>
+                        <div class="stat"><span class="stat-label">M2</span><span class="stat-value" id="statM2">0</span></div>
+                        <div class="stat"><span class="stat-label">M3</span><span class="stat-value" id="statM3">0</span></div>
+                        <div class="stat"><span class="stat-label">M4+</span><span class="stat-value" id="statM4">0</span></div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table" id="giocateTable">
+                            <thead><tr><th>Data</th><th>Numeri</th><th>Somma</th><th>Esito</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="btnVerifica">✅ VERIFICA TUTTE</button>
+                        <button class="btn btn-warning" id="btnAutoVerifica">🔄 AUTO</button>
+                    </div>
+                </section>
 
-                <div class="generated" id="generated"></div>
+                <section class="panel draws">
+                    <h2>🎱 Estrazioni Recenti</h2>
+                    <div class="table-container">
+                        <table class="data-table" id="estrazioniTable">
+                            <thead><tr><th>Data</th><th>Numeri</th><th>Jolly</th><th>SuperStar</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
 
-                <button class="btn btn-success btn-save" id="btnSalva" style="display:none;">
-                    💾 SALVA SCHEDINE
-                </button>
-            </section>
+            <!-- TAB: STATISTICHE -->
+            <div class="tab-content" id="tab-stats" style="display:none; width:100%;">
+                <section class="panel">
+                    <h2>📊 Statistiche Complete (4235 estrazioni)</h2>
+                    <div id="statsGrid" style="display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:16px;"></div>
+                    <div style="margin-top:16px;">
+                        <h3 style="font-size:13px; color:var(--accent);">Top 10 numeri frequenti</h3>
+                        <div id="top10" style="font-family:monospace; font-size:13px; margin-top:8px;"></div>
+                    </div>
+                </section>
+            </div>
 
-            <!-- Center Panel: Mie Giocate -->
-            <section class="panel my-plays">
-                <h2>📋 Le Mie Giocate</h2>
-                
-                <div class="stats-row">
-                    <div class="stat">
-                        <span class="stat-label">Speso</span>
-                        <span class="stat-value" id="statSpeso">€0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Vinto</span>
-                        <span class="stat-value" id="statVinto">€0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">ROI</span>
-                        <span class="stat-value" id="statRoi">0%</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">M2</span>
-                        <span class="stat-value" id="statM2">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">M3</span>
-                        <span class="stat-value" id="statM3">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">M4+</span>
-                        <span class="stat-value" id="statM4">0</span>
-                    </div>
-                </div>
-
-                <div class="table-container">
-                    <table class="data-table" id="giocateTable">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Numeri</th>
-                                <th>Somma</th>
-                                <th>Esito</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
+            <!-- TAB: PREMI -->
+            <div class="tab-content" id="tab-premi" style="display:none; width:100%;">
+                <section class="panel">
+                    <h2>🏆 Premi e Probabilità (ADM reali)</h2>
+                    <p class="subtitle">Premi medi da DB (p2-p6) con fallback ADM. 2 numeri=€5, 3=€25, 4=€296, 5=€25.847, 5+Jolly=€100k, 6=Jackpot</p>
+                    <table class="data-table" id="premiTable">
+                        <thead><tr><th>Match</th><th>Probabilità</th><th>Premio medio</th><th>Ultima estrazione</th></tr></thead>
+                        <tbody id="premiBody"></tbody>
                     </table>
-                </div>
+                    <div style="margin-top:12px; font-size:12px; color:var(--text-muted);" id="jackpotInfo"></div>
+                </section>
+            </div>
 
-                <div class="actions">
-                    <button class="btn btn-primary" id="btnVerifica">
-                        ✅ VERIFICA TUTTE
-                    </button>
-                    <button class="btn btn-warning" id="btnAutoVerifica">
-                        🔄 AUTO VERIFICA
-                    </button>
-                </div>
-            </section>
+            <!-- TAB: STORICO -->
+            <div class="tab-content" id="tab-storico" style="display:none; width:100%;">
+                <section class="panel">
+                    <h2>🎱 Storico Estrazioni</h2>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <button class="btn btn-primary" id="btnAggiornaStorico" style="flex:0;">🔄 Aggiorna Storico (50 pagine)</button>
+                        <span id="storicoStatus" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
+                    </div>
+                    <div class="table-container" style="max-height:500px;">
+                        <table class="data-table" id="storicoTable">
+                            <thead><tr><th>Data</th><th>Numeri</th><th>Jolly</th><th>Star</th><th>Somma</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
 
-            <!-- Right Panel: Estrazioni -->
-            <section class="panel draws">
-                <h2>🎱 Estrazioni Recenti</h2>
-                <div class="table-container">
-                    <table class="data-table" id="estrazioniTable">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Numeri</th>
-                                <th>Jolly</th>
-                                <th>SuperStar</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </section>
+            <!-- TAB: ANALISI -->
+            <div class="tab-content" id="tab-analisi" style="display:none; width:100%;">
+                <section class="panel">
+                    <h2>📈 Analisi Strategie</h2>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <button class="btn btn-primary" id="btnValuta">🏅 Valuta Algoritmi (50 estrazioni)</button>
+                        <button class="btn btn-warning" id="btnGrafici">📊 Mostra Grafici</button>
+                    </div>
+                    <div id="valutaResult" style="font-size:13px; white-space:pre-wrap; background:var(--bg); padding:12px; border-radius:8px; border:1px solid var(--border);"></div>
+                    <div id="graficiContainer" style="margin-top:16px;"></div>
+                </section>
+            </div>
         </main>
 
-        <!-- Footer -->
         <footer class="footer">
-            <span>SuperEnalotto v8.1 — Strategia QuartileSpread</span>
+            <span>SuperEnalotto v8.1 — Strategia QuartileSpread • Verde 7.18</span>
             <span id="statusBar">Pronto</span>
         </footer>
     </div>
 
-    <!-- Modal Verifica -->
     <div class="modal" id="modalVerifica">
         <div class="modal-content">
             <span class="modal-close" id="closeModal">&times;</span>

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec per SuperEnalotto Launcher EXE (backend + browser)"""
+"""PyInstaller spec per SuperEnalotto Desktop App v8.1 (finestra nativa webview, portable)"""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ if web_dir.exists():
     datas.append((str(web_dir), 'web'))
 
 a = Analysis(
-    [str(PROJECT_ROOT / 'launcher.py')],
+    [str(PROJECT_ROOT / 'desktop_app.py')],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -24,7 +24,8 @@ a = Analysis(
         'gateway',
         'gateway.engine',
         'gateway.server',
-        'gateway.__main__',
+        'webview',
+        'clr',
     ],
     hookspath=[],
     hooksconfig={},
