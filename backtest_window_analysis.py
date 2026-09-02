@@ -15,11 +15,11 @@ with open(PATH, encoding="utf-8") as f:
         try:
             nums = [int(row[2]), int(row[3]), int(row[4]), int(row[5]), int(row[6]), int(row[7])]
             records.append({"nums": nums})
-        except:
+        except (ValueError, IndexError):
             try:
                 nums = [int(row[4]), int(row[5]), int(row[6]), int(row[7]), int(row[8]), int(row[9])]
                 records.append({"nums": nums})
-            except:
+            except (ValueError, IndexError):
                 continue
 
 print(f"Records totali: {len(records)}")
@@ -92,7 +92,7 @@ hist = {}
 for name, fn in STRAT.items():
     roi, net = roi_on_window(records, fn)
     hist[name] = roi
-    print(f"  {name:16} ROI {roi:6.2f}%  net €{net}")
+    print(f"  {name:16} ROI {roi:6.2f}%  net EUR{net}")
 
 # 2) Rolling: per ogni N, quante volte cambia il vincitore? stabilita'
 print("\n=== ROLLING: stabilita' del vincitore per finestra N ===")

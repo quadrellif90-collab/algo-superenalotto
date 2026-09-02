@@ -13,9 +13,9 @@ d.ellipse([16, 16, SIZE - 16, SIZE - 16], fill=green, outline=green_dk, width=6)
 
 # lettera S bianca al centro
 try:
-    font = ImageFont.truetype("arial.ttf", 150)
-except:
-    font = ImageFont.load_default(150)
+            font = ImageFont.truetype("arial.ttf", 150)
+        except OSError:
+            font = ImageFont.load_default(150)
 txt = "S"
 bbox = d.textbbox((0, 0), txt, font=font)
 tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]

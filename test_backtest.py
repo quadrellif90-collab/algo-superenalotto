@@ -53,8 +53,8 @@ print("\nTesting ROI function...")
 if len(records) > 0:
     test_window = records[:10]
     roi, net = roi_on_window(test_window, random_pure, n_sched=5)
-    print(f"ROI calculation: ROI={roi:.2f}%, Net profit/loss={net}€")
+    print(f"ROI calculation: ROI={roi:.2f}%, Net profit/loss={net}EUR")
     print(f"  Spent: 10 schedine x 5 each = 50 estrazioni")
-    print(f"  Won: {net:+d}€")
+    print(f"  Won: {net:+d}EUR")
 
 print("\nBacktest analysis tests complete")
