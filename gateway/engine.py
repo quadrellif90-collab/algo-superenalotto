@@ -90,12 +90,12 @@ class SuperenalottoEngine:
         """)
         try:
             c.execute("SELECT p2 FROM estrazioni LIMIT 0")
-        except:
+        except sqlite3.OperationalError:
             for col in ["p2", "p3", "p4", "p5", "p5j", "p6"]:
                 try:
                     c.execute(f"ALTER TABLE estrazioni ADD COLUMN {col} REAL DEFAULT 0")
-                except:
-                    pass
+                except sqlite3.OperationalError as e:
+                    print(f"[WARN] _init_db alter col {col}: {e}")
         c.execute("""
             CREATE TABLE IF NOT EXISTS giocate (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, numeri TEXT,
@@ -114,8 +114,8 @@ class SuperenalottoEngine:
                 if os.path.exists(alt_track):
                     self.tracking_path = alt_track
                     tracking_exists = True
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[WARN] _init_db tracking: {e}")
         if c.fetchone()[0] == 0 and tracking_exists:
             self._import_tracking()
         self._load_records()
@@ -134,7 +134,7 @@ class SuperenalottoEngine:
                                 int(row[5]), int(row[6]), int(row[7])]
                         jolly = int(row[8]) if row[8] else 0
                         star = int(row[9]) if len(row) > 9 and row[9] else 0
-                    except:
+                    except (ValueError, IndexError):
                         nums = [int(row[4]), int(row[5]), int(row[6]),
                                 int(row[7]), int(row[8]), int(row[9])]
                         jolly = int(row[10]) if len(row) > 10 and row[10] else 0
@@ -145,13 +145,14 @@ class SuperenalottoEngine:
                             data_norm = datetime.strptime(data_raw, "%d/%m/%Y").strftime("%Y-%m-%d")
                         else:
                             data_norm = datetime.strptime(data_raw, "%Y-%m-%d").strftime("%Y-%m-%d")
-                    except:
+                    except ValueError:
                         data_norm = data_raw
                     c.execute(
                         "INSERT OR IGNORE INTO estrazioni (data,n1,n2,n3,n4,n5,n6,jolly,star) VALUES (?,?,?,?,?,?,?,?,?)",
                         (data_norm, nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], jolly, star),
                     )
-                except:
+                except (ValueError, IndexError) as e:
+                    print(f"[WARN] _import_csv skip row: {e}")
                     continue
         self.conn.commit()
 
@@ -159,33 +160,37 @@ class SuperenalottoEngine:
         c = self.conn.cursor()
         if not os.path.exists(self.tracking_path):
             return
-        with open(self.tracking_path, "r", encoding="utf-8-sig") as f:
-            reader = csv.reader(f)
-            header = next(reader, None)
-            added = 0
-            for row in reader:
-                if not row:
-                    continue
-                data = (row[0] or '').strip().strip('"') if row[0] else ''
-                nums = ''
-                if len(row) > 4:
-                    nums = (row[4] or '').strip().strip('"')
-                somma = 0
-                if len(row) > 5 and row[5]:
+        try:
+            with open(self.tracking_path, "r", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                added = 0
+                for row in reader:
+                    if not row:
+                        continue
+                    data = (row[0] or '').strip().strip('"') if row[0] else ''
+                    nums = ''
+                    if len(row) > 4:
+                        nums = (row[4] or '').strip().strip('"')
+                    somma = 0
+                    if len(row) > 5 and row[5]:
+                        try:
+                            somma = int(row[5].strip().strip('"'))
+                        except ValueError:
+                            somma = 0
+                    if not data or not nums:
+                        continue
                     try:
-                        somma = int(row[5].strip().strip('"'))
-                    except Exception:
-                        somma = 0
-                if not data or not nums:
-                    continue
-                try:
-                    c.execute(
-                        "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
-                        (data, nums, somma),
-                    )
-                    added += 1
-                except Exception:
-                    continue
+                        c.execute(
+                            "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
+                            (data, nums, somma),
+                        )
+                        added += 1
+                    except sqlite3.IntegrityError as e:
+                        print(f"[WARN] _import_tracking skip row: {e}")
+                        continue
+        except Exception as e:
+            print(f"[ERROR] _import_tracking: {e}")
         self.conn.commit()
         print(f"[TRACKING] Imported {added} giocate da {self.tracking_path}")
 
@@ -332,7 +337,7 @@ class SuperenalottoEngine:
         for gid, data, numeri_str in rows:
             try:
                 nums = [int(x) for x in numeri_str.split("-") if x]
-            except:
+            except ValueError:
                 continue
             if len(nums) != 6:
                 continue

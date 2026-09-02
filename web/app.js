@@ -44,7 +44,18 @@ async function apiPost(endpoint, data) { const res = await fetch(`${API}${endpoi
 async function loadProssima() {
     const data = await apiGet('/api/prossima');
     document.getElementById('nextDate').textContent = data.data;
-    if (data.oggi) document.getElementById('nextDate').style.color = 'var(--warning)';
+    if (data.oggi) {
+        document.getElementById('nextDate').style.color = 'var(--warning)';
+        // popup giorno estrazione (richiesta)
+        const modal = document.getElementById('modalDrawDay');
+        const txt = document.getElementById('drawDayText');
+        if (modal && txt) {
+            txt.textContent = `Oggi ${data.data} è estrazione — gioca entro le 19:30!`;
+            modal.classList.add('active');
+            try { new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==').play().catch(()=>{}); } catch {}
+            setTimeout(()=> modal.classList.remove('active'), 6000);
+        }
+    }
     try { const jp = await apiGet('/api/jackpot'); if (jp.jackpot) document.getElementById('jackpot').textContent = jp.jackpot; } catch {}
 }
 
@@ -115,12 +126,15 @@ async function loadStorico(n=40) {
 
 async function genera() {
     const n = parseInt(document.getElementById('numSchedine').value);
+    if (n>5) { alert('Max 5 schedine per volta'); return; }
     const data = await apiGet(`/api/genera?n=${n}`);
     generatedSchedine = data;
     const container = document.getElementById('generated');
     container.innerHTML = data.map((s,i) => `<div class="schedina"><span class="schedina-num">Schedina ${i+1}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`).join('');
     document.getElementById('btnSalva').style.display='block';
     setStatus(`Generate ${n} schedine`);
+    // suono Win (richiesta)
+    try { const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=880; o.connect(ctx.destination); o.start(); setTimeout(()=>{o.stop(); ctx.close();},180); } catch {}
 }
 async function salva() {
     if (generatedSchedine.length===0) return;

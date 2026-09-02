@@ -96,26 +96,30 @@ body {
     color: var(--text);
 }
 
-/* Tabs */
-.tabs {
-    display: flex;
-    gap: 4px;
-    padding: 8px 24px;
-    background: #d4f0dd;
-    border-bottom: 2px solid var(--border);
-}
-.tab {
-    padding: 8px 16px;
-    border: none;
+/* Sidebar (richiesta 7.18) */
+.sidebar {
+    width: 200px;
     background: var(--bg-card);
-    color: var(--text-muted);
+    border-right: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 8px;
+}
+.sidebar .tab {
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text);
     border-radius: var(--radius-sm);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    border: 1px solid var(--border);
+    text-align: left;
+    border: 1px solid transparent;
 }
-.tab.active {
+.sidebar .tab:hover { background: var(--bg-hover); }
+.sidebar .tab.active {
     background: var(--accent);
     color: white;
     border-color: var(--accent);

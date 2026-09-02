@@ -55,8 +55,11 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
         if path == "/api/stats":
             self._json_response(self.engine.stats)
         elif path == "/api/estrazioni":
-            n = int(parse_qs(parsed.query).get("n", [20])[0])
-            self._json_response(self.engine.get_estrazioni_recenti(n))
+            try:
+                n = int(parse_qs(parsed.query).get("n", [20])[0])
+                self._json_response(self.engine.get_estrazioni_recenti(n))
+            except (ValueError, IndexError) as e:
+                self._json_response({"error": str(e)})
         elif path == "/api/giocate":
             self._json_response(self.engine.get_giocate())
         elif path == "/api/prossima":
@@ -65,31 +68,29 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 "oggi": self.engine.oggi_estrazione(),
             })
         elif path == "/api/genera":
-            n = int(parse_qs(parsed.query).get("n", [1])[0])
-            n = max(1, min(5, n))
-            schedine = self.engine.genera_schedine(n)
-            self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
-        elif path == "/api/jackpot":
-            jackpot_val = "€218.700.000"
             try:
-                cfg_path = get_config_path()
-                if os.path.exists(cfg_path):
-                    with open(cfg_path, "r", encoding="utf-8") as f:
-                        cfg = json.load(f)
-                        jp = cfg.get("jackpot")
-                        if jp:
-                            if isinstance(jp, (int, float)):
-                                jackpot_val = f"€{jp:,.0f}".replace(",", ".")
-                            else:
-                                jackpot_val = str(jp)
-            except Exception:
-                pass
+                n = int(parse_qs(parsed.query).get("n", [1])[0])
+                n = max(1, min(5, n))
+                schedine = self.engine.genera_schedine(n)
+                self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
+            except (ValueError, IndexError) as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/jackpot":
+            try:
+                jp_val = self.engine.fetch_jackpot_sisal()
+                jackpot_val = f"€{jp_val:,.0f}".replace(",", ".")
+            except Exception as e:
+                print(f"[WARN] fetch_jackpot_sisal: {e}")
+                jackpot_val = "€210.000.000"
             self._json_response({"jackpot": jackpot_val})
         elif path == "/api/premi":
             self._json_response(self.engine.get_premi())
         elif path == "/api/valuta":
-            n = int(parse_qs(parsed.query).get("n", [50])[0])
-            self._json_response(self.engine.valuta_strategie(n))
+            try:
+                n = int(parse_qs(parsed.query).get("n", [50])[0])
+                self._json_response(self.engine.valuta_strategie(n))
+            except (ValueError, IndexError) as e:
+                self._json_response({"error": str(e)})
         elif path == "/api/grafici":
             self._json_response(self.engine.get_grafici())
         else:
@@ -100,46 +101,58 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/salva":
-            data = self._read_json()
-            today = data.get("data") or __import__("datetime").datetime.now().strftime("%Y-%m-%d")
-            # Controlla blocco PRIMA del batch: se esistono già giocate non verificate per oggi, blocca tutto
-            c = self.engine.conn.cursor()
-            c.execute("SELECT COUNT(*) FROM giocate WHERE data=? AND verificato=0", (today,))
-            already_exists = c.fetchone()[0] > 0
-            if already_exists:
-                self._json_response({"ok": False, "blocked": True, "msg": "Schedine già salvate per questa data. Verifica o cancella prima."})
-                return
-            saved = 0
-            for sched in data.get("schedine", []):
-                nums = sched.get("nums", [])
-                if not nums or len(nums) != 6:
-                    continue
-                # Inserimento diretto senza ri-check su verificato (permette batch di 2-5 schedine)
-                try:
-                    c.execute(
-                        "INSERT OR IGNORE INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
-                        (today, "-".join(map(str, nums)), sum(nums)),
-                    )
-                    if c.rowcount > 0:
-                        saved += 1
-                except Exception:
-                    continue
-            self.engine.conn.commit()
-            self._json_response({"ok": True, "saved": saved, "blocked": False})
+            try:
+                data = self._read_json()
+                today = data.get("data") or __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+                # Controlla blocco PRIMA del batch: se esistono già giocate non verificate per oggi, blocca tutto
+                c = self.engine.conn.cursor()
+                c.execute("SELECT COUNT(*) FROM giocate WHERE data=? AND verificato=0", (today,))
+                already_exists = c.fetchone()[0] > 0
+                if already_exists:
+                    self._json_response({"ok": False, "blocked": True, "msg": "Schedine già salvate per questa data. Verifica o cancella prima."})
+                    return
+                saved = 0
+                for sched in data.get("schedine", []):
+                    nums = sched.get("nums", [])
+                    if not nums or len(nums) != 6:
+                        continue
+                    try:
+                        c.execute(
+                            "INSERT OR IGNORE INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
+                            (today, "-".join(map(str, nums)), sum(nums)),
+                        )
+                        if c.rowcount > 0:
+                            saved += 1
+                    except sqlite3.IntegrityError as e:
+                        print(f"[WARN] salva gioccata skip: {e}")
+                        continue
+                self.engine.conn.commit()
+                self._json_response({"ok": True, "saved": saved, "blocked": False})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
         elif path == "/api/verifica":
-            body = self._read_json()
-            only_unchecked = body.get("only_unchecked", False)
-            result = self.engine.verifica_tutte(only_unchecked=only_unchecked)
-            self._json_response(result)
+            try:
+                body = self._read_json()
+                only_unchecked = body.get("only_unchecked", False)
+                result = self.engine.verifica_tutte(only_unchecked=only_unchecked)
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({"error": str(e)})
         elif path == "/api/cancella":
-            body = self._read_json()
-            gid = body.get("id")
-            if gid:
-                self.engine.cancella_giocata(gid)
-            self._json_response({"ok": True})
+            try:
+                body = self._read_json()
+                gid = body.get("id")
+                if gid:
+                    self.engine.cancella_giocata(gid)
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
         elif path == "/api/aggiorna_storico":
-            result = self.engine.aggiorna_storico()
-            self._json_response(result)
+            try:
+                result = self.engine.aggiorna_storico()
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({"error": str(e)})
         else:
             self.send_error(404)
 

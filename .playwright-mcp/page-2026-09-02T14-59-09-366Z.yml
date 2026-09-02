@@ -1,0 +1,84 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - 'heading "ðŸ€ SuperEnalotto" [level=1] [ref=e5]'
+      - generic [ref=e6]: v8.2
+      - generic [ref=e7]: QuartileSpread â€¢ 4235 estrazioni
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]: JACKPOT
+        - generic [ref=e11]: â‚¬210.000.000
+      - generic [ref=e12]:
+        - generic [ref=e13]: Prossima estrazione
+        - generic [ref=e14]: 03/09/2026
+  - generic [ref=e15]:
+    - navigation [ref=e16]:
+      - button "ðŸŽ² Gioca" [ref=e17] [cursor=pointer]
+      - button "ðŸ“Š Statistiche" [ref=e18] [cursor=pointer]
+      - 'button "ðŸ† Premi" [ref=e19] [cursor=pointer]'
+      - button "ðŸŽ± Storico" [ref=e20] [cursor=pointer]
+      - button "ðŸ“ˆ Analisi" [ref=e21] [cursor=pointer]
+      - generic [ref=e22]:
+        - generic [ref=e23]: "Backup: giornaliero"
+        - generic [ref=e24]: "Avvio: minimizzato"
+    - main [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - heading "ðŸ“Š Generatore Schedine" [level=2] [ref=e28]
+          - paragraph [ref=e29]: Strategia QuartileSpread â€” 1 per quartile, somma Q1-Q3, max 2/decade, max 1 >80
+          - generic [ref=e30]:
+            - generic [ref=e31]: "Numero schedine (max 5):"
+            - combobox "Numero schedine (max 5):" [ref=e32] [cursor=pointer]:
+              - option "1" [selected]
+              - option "2"
+              - option "3"
+              - option "4"
+              - option "5"
+          - 'button "ðŸ€ GENERA SCHEDINE" [ref=e33] [cursor=pointer]'
+          - paragraph [ref=e34]: Le altre strategie (HotCold, AntiRecent...) restano per backtest.
+        - generic [ref=e35]:
+          - heading "ðŸ“‹ Le Mie Giocate" [level=2] [ref=e36]
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - generic [ref=e39]: Speso
+              - generic [ref=e40]: â‚¬0
+            - generic [ref=e41]:
+              - generic [ref=e42]: Vinto
+              - generic [ref=e43]: â‚¬0
+            - generic [ref=e44]:
+              - generic [ref=e45]: ROI
+              - generic [ref=e46]: 0%
+            - generic [ref=e47]:
+              - generic [ref=e48]: M2
+              - generic [ref=e49]: "0"
+            - generic [ref=e50]:
+              - generic [ref=e51]: M3
+              - generic [ref=e52]: "0"
+            - generic [ref=e53]:
+              - generic [ref=e54]: M4+
+              - generic [ref=e55]: "0"
+          - table [ref=e57]:
+            - rowgroup [ref=e58]:
+              - row [ref=e59]:
+                - columnheader "Data" [ref=e60]
+                - columnheader "Numeri" [ref=e61]
+                - columnheader "Somma" [ref=e62]
+                - columnheader "Esito" [ref=e63]
+                - columnheader [ref=e64]
+            - rowgroup
+          - generic [ref=e65]:
+            - button "âœ… VERIFICA TUTTE" [ref=e66] [cursor=pointer]
+            - button "ðŸ”„ AUTO" [ref=e67] [cursor=pointer]
+        - generic [ref=e68]:
+          - heading "ðŸŽ± Estrazioni Recenti" [level=2] [ref=e69]
+          - table [ref=e71]:
+            - rowgroup [ref=e72]:
+              - row [ref=e73]:
+                - columnheader "Data" [ref=e74]
+                - columnheader "Numeri" [ref=e75]
+                - columnheader "Jolly" [ref=e76]
+                - columnheader "SuperStar" [ref=e77]
+            - rowgroup
+  - contentinfo [ref=e78]:
+    - generic [ref=e79]: SuperEnalotto v8.2 â€” Strategia QuartileSpread â€¢ Verde 7.18
+    - generic [ref=e80]: Pronto
