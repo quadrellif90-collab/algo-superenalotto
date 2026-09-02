@@ -84,7 +84,7 @@ class SuperenalottoEngine:
 
     def _import_csv(self):
         c = self.conn.cursor()
-        with open(CSV_PATH, "r", encoding="utf-8") as f:
+        with open(self.csv_path, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f)
             next(reader, None)
             for row in reader:
@@ -119,22 +119,37 @@ class SuperenalottoEngine:
 
     def _import_tracking(self):
         c = self.conn.cursor()
-        with open(TRACKING_PATH, "r", encoding="utf-8") as f:
+        if not os.path.exists(self.tracking_path):
+            return
+        with open(self.tracking_path, "r", encoding="utf-8-sig") as f:
             reader = csv.reader(f)
-            next(reader, None)
+            header = next(reader, None)
+            added = 0
             for row in reader:
-                if len(row) < 6:
+                if not row:
+                    continue
+                data = (row[0] or '').strip().strip('"') if row[0] else ''
+                nums = ''
+                if len(row) > 4:
+                    nums = (row[4] or '').strip().strip('"')
+                somma = 0
+                if len(row) > 5 and row[5]:
+                    try:
+                        somma = int(row[5].strip().strip('"'))
+                    except Exception:
+                        somma = 0
+                if not data or not nums:
                     continue
                 try:
-                    nums_str = row[4] if len(row) > 4 else ""
-                    somma = int(row[5]) if len(row) > 5 and row[5] else 0
                     c.execute(
-                        "INSERT INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
-                        (row[0], nums_str, somma),
+                        "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
+                        (data, nums, somma),
                     )
-                except:
+                    added += 1
+                except Exception:
                     continue
         self.conn.commit()
+        print(f"[TRACKING] Imported {added} giocate da {self.tracking_path}")
 
     def _load_records(self):
         c = self.conn.cursor()
@@ -158,11 +173,12 @@ class SuperenalottoEngine:
         num_counts = Counter(all_nums)
         sums_sorted = sorted(sums)
         n = len(sums)
+        mean_val = sum(sums) / n
         self.stats = {
             "count": n,
-            "mean": sum(sums) / n,
+            "mean": mean_val,
             "median": sums_sorted[n // 2],
-            "std": (sum((s - sums_sorted[n // 2]) ** 2 for s in sums) / n) ** 0.5,
+            "std": (sum((s - mean_val) ** 2 for s in sums) / n) ** 0.5,
             "q1": sums_sorted[n // 4],
             "q3": sums_sorted[3 * n // 4],
             "min": min(sums),
@@ -170,27 +186,46 @@ class SuperenalottoEngine:
             "num_counts": dict(num_counts.most_common()),
         }
 
+    def _valid_constraints(self, nums):
+        """Vincoli identici a v7.17: somma in [Q1,Q3] (o 246-306 fallback), max 2/decade, max 1 >80."""
+        s = sum(nums)
+        if self.stats and "q1" in self.stats:
+            if not (self.stats["q1"] <= s <= self.stats["q3"]):
+                return False
+        else:
+            if not (246 <= s <= 306):
+                return False
+        decades = Counter(n // 10 for n in nums)
+        if max(decades.values()) > 2:
+            return False
+        if sum(1 for n in nums if n > 80) > 1:
+            return False
+        return True
+
     def quartile_spread(self):
-        """Genera 6 numeri con strategia QuartileSpread."""
+        """Genera 6 numeri con strategia QuartileSpread v7.17 fedele: 1 per quartile + 2 extra random, con vincoli."""
         if not self.stats:
-            return [random.randint(1, 90) for _ in range(6)]
-        q1 = self.stats["q1"]
-        q3 = self.stats["q3"]
-        nums = []
-        ranges = [(1, 23), (23, 45), (45, 67), (67, 90)]
-        for _ in range(100):
-            candidate = []
-            for lo, hi in ranges:
-                n = random.randint(lo, hi)
-                while n in candidate:
-                    n = random.randint(lo, hi)
-                candidate.append(n)
-            s = sum(candidate)
-            if q1 <= s <= q3:
-                decades = Counter(n // 10 for n in candidate)
-                if max(decades.values()) <= 2 and sum(1 for n in candidate if n > 80) <= 1:
-                    return sorted(candidate)
-        # fallback
+            return sorted(random.sample(range(1, 91), 6))
+        q_ranges = [(1, 22), (23, 45), (46, 67), (68, 90)]
+        for _ in range(2000):
+            alloc = [1, 1, 1, 1]
+            extra = 2
+            while extra > 0:
+                alloc[random.randrange(4)] += 1
+                extra -= 1
+            nums = []
+            for qi in range(4):
+                lo, hi = q_ranges[qi]
+                nums.extend(random.sample(range(lo, hi + 1), alloc[qi]))
+            nums = sorted(nums)
+            if not self._valid_constraints(nums):
+                continue
+            return nums
+        # fallback: versione semplice come v7.17
+        for _ in range(1000):
+            c = sorted(random.sample(range(1, 91), 6))
+            if self._valid_constraints(c):
+                return c
         return sorted(random.sample(range(1, 91), 6))
 
     def genera_schedine(self, n=1):
@@ -228,12 +263,25 @@ class SuperenalottoEngine:
         return {"matches": matches, "jolly_hit": jolly_hit, "premio": premio}
 
     def salva_giocata(self, data, numeri, somma):
+        """Salva una giocata. Blocca se per la stessa data esiste già una giocata non verificata.
+        Gestisce UNIQUE constraint con INSERT OR IGNORE."""
         c = self.conn.cursor()
-        c.execute(
-            "INSERT INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
-            (data, "-".join(map(str, numeri)), somma),
-        )
-        self.conn.commit()
+        c.execute("SELECT COUNT(*) FROM giocate WHERE data=? AND verificato=0", (data,))
+        if c.fetchone()[0] > 0:
+            return False  # bloccato
+        try:
+            c.execute(
+                "INSERT OR IGNORE INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
+                (data, "-".join(map(str, numeri)), somma),
+            )
+            self.conn.commit()
+            # rowcount == 0 significa duplicato (UNIQUE data+numeri)
+            if c.rowcount == 0:
+                # duplicato esatto già presente: consideralo successo (idempotente)
+                return True
+            return True
+        except sqlite3.IntegrityError:
+            return False
 
     def verifica_tutte(self, only_unchecked=False):
         c = self.conn.cursor()

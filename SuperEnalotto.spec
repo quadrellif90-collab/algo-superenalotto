@@ -1,35 +1,42 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for SuperEnalotto v8.0"""
+"""PyInstaller spec per SuperEnalotto Launcher EXE (backend + browser)"""
 
-import os
 from pathlib import Path
 
-block_cipher = None
+PROJECT_ROOT = Path('.').resolve()
 
-PROJECT_ROOT = Path(SPECPATH).resolve()
+datas = []
+for f in ['superenalotto.csv', 'config.json', 'daily_limit.csv', 'superenalotto.db', 'icon.ico']:
+    p = PROJECT_ROOT / f
+    if p.exists():
+        datas.append((str(p), '.'))
+# cartella web indispensabile per il frontend
+web_dir = PROJECT_ROOT / 'web'
+if web_dir.exists():
+    datas.append((str(web_dir), 'web'))
 
 a = Analysis(
-    [str(PROJECT_ROOT / 'gateway' / '__main__.py')],
-    pathex=[str(PROJECT_ROOT)],
+    [str(PROJECT_ROOT / 'launcher.py')],
+    pathex=[],
     binaries=[],
-    datas=[
-        (str(PROJECT_ROOT / 'web'), 'web'),
-        (str(PROJECT_ROOT / 'superenalotto.csv'), '.'),
-        (str(PROJECT_ROOT / 'config.json'), '.'),
-        (str(PROJECT_ROOT / 'icon.ico'), '.'),
+    datas=datas,
+    hiddenimports=[
+        'gateway',
+        'gateway.engine',
+        'gateway.server',
+        'gateway.__main__',
     ],
-    hiddenimports=['gateway', 'gateway.engine', 'gateway.server'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
-    cipher=block_cipher,
+    cipher=None,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 exe = EXE(
     pyz,
@@ -42,12 +49,11 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,

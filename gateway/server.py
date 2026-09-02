@@ -55,7 +55,24 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             schedine = self.engine.genera_schedine(n)
             self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
         elif path == "/api/jackpot":
-            self._json_response({"jackpot": "€218.700.000"})
+            # Legge jackpot da config.json (fallback fisso)
+            jackpot_val = "€218.700.000"
+            try:
+                base = get_base_dir()
+                cfg_path = os.path.join(base, "config.json")
+                if os.path.exists(cfg_path):
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                        jp = cfg.get("jackpot")
+                        if jp:
+                            # formatta come €XXX.XXX.XXX se numerico
+                            if isinstance(jp, (int, float)):
+                                jackpot_val = f"€{jp:,.0f}".replace(",", ".")
+                            else:
+                                jackpot_val = str(jp)
+            except Exception:
+                pass
+            self._json_response({"jackpot": jackpot_val})
         else:
             super().do_GET()
 
@@ -66,10 +83,30 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
         if path == "/api/salva":
             data = self._read_json()
             today = data.get("data") or __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+            # Controlla blocco PRIMA del batch: se esistono già giocate non verificate per oggi, blocca tutto
+            c = self.engine.conn.cursor()
+            c.execute("SELECT COUNT(*) FROM giocate WHERE data=? AND verificato=0", (today,))
+            already_exists = c.fetchone()[0] > 0
+            if already_exists:
+                self._json_response({"ok": False, "blocked": True, "msg": "Schedine già salvate per questa data. Verifica o cancella prima."})
+                return
+            saved = 0
             for sched in data.get("schedine", []):
                 nums = sched.get("nums", [])
-                self.engine.salva_giocata(today, nums, sum(nums))
-            self._json_response({"ok": True})
+                if not nums or len(nums) != 6:
+                    continue
+                # Inserimento diretto senza ri-check su verificato (permette batch di 2-5 schedine)
+                try:
+                    c.execute(
+                        "INSERT OR IGNORE INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)",
+                        (today, "-".join(map(str, nums)), sum(nums)),
+                    )
+                    if c.rowcount > 0:
+                        saved += 1
+                except Exception:
+                    continue
+            self.engine.conn.commit()
+            self._json_response({"ok": True, "saved": saved, "blocked": False})
         elif path == "/api/verifica":
             body = self._read_json()
             only_unchecked = body.get("only_unchecked", False)
@@ -91,10 +128,10 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
 
     def _json_response(self, data):
         self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode("utf-8"))
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
     def log_message(self, format, *args):
         pass  # silenzia log
@@ -121,7 +158,3 @@ def start_server(open_browser_flag=True):
     finally:
         engine.close()
         server.server_close()
-
-
-if __name__ == "__main__":
-    start_server()

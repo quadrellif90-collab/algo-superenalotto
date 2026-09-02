@@ -12,7 +12,8 @@ else:
     if parent not in sys.path:
         sys.path.insert(0, parent)
 
-from gateway.server import start_server
+from gateway.desktop import DesktopApp
 
 if __name__ == "__main__":
-    start_server()
+    app = DesktopApp()
+    app.start()

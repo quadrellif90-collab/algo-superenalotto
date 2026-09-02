@@ -45,6 +45,10 @@ async function loadProssima() {
     if (data.oggi) {
         document.getElementById('nextDate').style.color = 'var(--success)';
     }
+    try {
+        const jp = await apiGet('/api/jackpot');
+        if (jp.jackpot) document.getElementById('jackpot').textContent = jp.jackpot;
+    } catch {}
 }
 
 async function loadEstrazioni() {
@@ -118,9 +122,16 @@ async function genera() {
 
 async function salva() {
     if (generatedSchedine.length === 0) return;
-    await apiPost('/api/salva', { schedine: generatedSchedine });
-    setStatus('Schedine salvate!');
-    document.getElementById('btnSalva').style.display = 'none';
+    const result = await apiPost('/api/salva', { schedine: generatedSchedine });
+    if (result.blocked) {
+        if (result.msg) {
+            alert(result.msg);
+        }
+        setStatus('Salvataggio parziale o bloccato');
+    } else {
+        setStatus('Schedine salvate!');
+        document.getElementById('btnSalva').style.display = 'none';
+    }
     await loadGiocate();
 }
 
