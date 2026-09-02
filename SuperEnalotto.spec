@@ -1,25 +1,41 @@
 # -*- mode: python ; coding: utf-8 -*-
+"""PyInstaller spec for SuperEnalotto v8.0"""
 
+import os
+from pathlib import Path
+
+block_cipher = None
+
+PROJECT_ROOT = Path(SPECPATH).resolve()
 
 a = Analysis(
-    ['superenalotto_app.py'],
-    pathex=[],
+    [str(PROJECT_ROOT / 'gateway' / '__main__.py')],
+    pathex=[str(PROJECT_ROOT)],
     binaries=[],
-    datas=[],
-    hiddenimports=[],
+    datas=[
+        (str(PROJECT_ROOT / 'web'), 'web'),
+        (str(PROJECT_ROOT / 'superenalotto.csv'), '.'),
+        (str(PROJECT_ROOT / 'config.json'), '.'),
+        (str(PROJECT_ROOT / 'icon.ico'), '.'),
+    ],
+    hiddenimports=['gateway', 'gateway.engine', 'gateway.server'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
     noarchive=False,
-    optimize=0,
 )
-pyz = PYZ(a.pure)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
+    a.zipfiles,
     a.datas,
     [],
     name='SuperEnalotto',
@@ -35,5 +51,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon.ico'],
+    icon=str(PROJECT_ROOT / 'icon.ico'),
 )
