@@ -14,9 +14,9 @@ import threading
 import time
 import urllib.request
 import urllib.error
-import webbrowser
 import ctypes
 import traceback
+import webview
 
 # Log su file per debug (console=False nel build exe)
 LOG_FILE = os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto', 'launcher.log')
@@ -210,11 +210,11 @@ if __name__ == '__main__':
             release_lock(lock_fp)
             sys.exit(1)
 
-        log("Server pronto, apro browser...")
-        webbrowser.open(URL)
-        print(f"SuperEnalotto aperto su {URL}")
+        log("Server pronto, apro GUI con PyWebView...")
+        # PyWebView: finestra nativa che carica l'UI HTML dal server locale
+        win = webview.create_window("SuperEnalotto v8.3", URL, width=1280, height=800, resizable=True)
 
-        # Mostra notifica primo avvio (in thread separato, post-server)
+        # Mostra notifica primo avvio (in thread separato)
         if first_run:
             def _show_notification():
                 try:
@@ -232,6 +232,12 @@ if __name__ == '__main__':
                     log(f"notification error: {e}")
             threading.Thread(target=_show_notification, daemon=True).start()
 
+        # webview.start() in thread separato: il server HTTP continua a servire
+        # richieste dal thread principale che rimane libero.
+        webview_thread = threading.Thread(target=webview.start, daemon=True)
+        webview_thread.start()
+
+        # Loop principale: tiene vivo il processo e riavvia backend se muore
         while True:
             time.sleep(5)
             if not backend_thread.is_alive():

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec per SuperEnalotto v8.2 (browser-based, portable, Documents/SuperEnalotto)"""
+"""PyInstaller spec per SuperEnalotto v8.3 (pywebview, portable, Documents/SuperEnalotto)"""
 
 from pathlib import Path
 
@@ -30,7 +30,6 @@ a = Analysis(
         'urllib.request',
         'urllib.error',
         'urllib.parse',
-        'webbrowser',
         'threading',
         'json',
         'sqlite3',
@@ -38,7 +37,8 @@ a = Analysis(
         'datetime',
         'collections',
         'random',
-        'shutil',
+        'webview',
+        'webview.platforms.winforms',
     ],
     hookspath=[],
     hooksconfig={},
