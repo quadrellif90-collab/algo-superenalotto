@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SuperEnalotto Launcher v8.2
+SuperEnalotto Launcher v8.3
 - Singola istanza via lock file in Documents/SuperEnalotto
 - Avvia backend HTTP in-thread (porta 8766)
-- Apre browser predefinito su http://localhost:8766
+- Apre finestra nativa PyWebView su http://localhost:8766
 - Dati persistenti in Documents/SuperEnalotto/
 """
 

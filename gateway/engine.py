@@ -682,3 +682,24 @@ class SuperenalottoEngine:
     def close(self):
         if self.conn:
             self.conn.close()
+
+    def save_tracking(self):
+        """Salva tutte le giocate non verificate in tracking.csv per la persistenza."""
+        c = self.conn.cursor()
+        c.execute("SELECT data, numeri, somma, verificato FROM giocate WHERE verificato=0")
+        rows = c.fetchall()
+        
+        if not rows:
+            return {"saved": 0}
+        
+        import csv
+        data_dir = get_user_data_dir()
+        tracking_path = os.path.join(data_dir, TRACKING_PATH)
+        
+        with open(tracking_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for data, numeri, somma, verificato in rows:
+                writer.writerow([data, "", "", numeri, somma, "", str(verificato == 1)])
+        
+        self.conn.commit()
+        return {"saved": len(rows)}

@@ -134,6 +134,8 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                         print(f"[WARN] salva gioccata skip: {e}")
                         continue
                 self.engine.conn.commit()
+                if saved > 0:
+                    self.engine.save_tracking()
                 self._json_response({"ok": True, "saved": saved, "blocked": False})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
@@ -151,6 +153,7 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 gid = body.get("id")
                 if gid:
                     self.engine.cancella_giocata(gid)
+                    self.engine.save_tracking()
                 self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
@@ -180,9 +183,17 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                     return
                 somma = sum(nums)
                 ok = self.engine.salva_giocata(data_str, nums, somma)
+                if ok:
+                    self.engine.save_tracking()
                 self._json_response({"ok": ok, "data": data_str, "numeri": nums})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
+        elif path == "/api/save_tracking":
+            try:
+                result = self.engine.save_tracking()
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({"error": str(e)})
         else:
             self.send_error(404)
 
