@@ -29,16 +29,27 @@ def get_user_data_dir():
 
 
 def migrate_db_if_needed():
-    """Se il DB/tracking/config esistono accanto all'exe ma non in Documents, li migra."""
+    """Se il DB/tracking/config esistono accanto all'exe o in _MEIPASS ma non in Documents, li migra."""
     if not getattr(sys, 'frozen', False):
         return
     exe_dir = os.path.dirname(sys.executable)
     data_dir = get_user_data_dir()
     for fname in (DB_PATH, TRACKING_PATH, CONFIG_PATH):
-        src = os.path.join(exe_dir, fname)
         dst = os.path.join(data_dir, fname)
-        if os.path.exists(src) and not os.path.exists(dst):
+        if os.path.exists(dst):
+            continue
+        # Controlla accanto all'exe
+        src = os.path.join(exe_dir, fname)
+        if os.path.exists(src):
             shutil.copy2(src, dst)
+            continue
+        # Controlla in _MEIPASS (bundled)
+        try:
+            mei_src = os.path.join(sys._MEIPASS, fname)
+            if os.path.exists(mei_src):
+                shutil.copy2(mei_src, dst)
+        except Exception:
+            pass
 
 # Premi medi ufficiali ADM (fallback)
 PREMI_DEFAULT = {2: 5.0, 3: 25.0, 4: 296.0, 5: 25847.0, 5.5: 100000.0, 6: 1000000.0}
@@ -123,16 +134,16 @@ class SuperenalottoEngine:
         c.execute("""
             CREATE TABLE IF NOT EXISTS giocate (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, numeri TEXT,
-                somma INT, verificato INT DEFAULT 0, vincita REAL DEFAULT 0)
+                somma INT, verificato INT DEFAULT 0, vincita REAL DEFAULT 0,
+                UNIQUE(data, numeri)
+            )
         """)
         self.conn.commit()
         c.execute("SELECT COUNT(*) FROM estrazioni")
         if c.fetchone()[0] == 0 and os.path.exists(self.csv_path):
             self._import_csv()
-        c.execute("SELECT COUNT(*) FROM giocate")
         tracking_exists = os.path.exists(self.tracking_path)
-        if c.fetchone()[0] == 0 and tracking_exists:
-            self._import_tracking()
+        self._import_tracking()
         self._load_records()
 
     def _import_csv(self):
@@ -175,35 +186,47 @@ class SuperenalottoEngine:
         c = self.conn.cursor()
         if not os.path.exists(self.tracking_path):
             return
+        added = 0
         try:
-            with open(self.tracking_path, "r", encoding="utf-8-sig") as f:
-                reader = csv.reader(f)
-                header = next(reader, None)
-                added = 0
-                for row in reader:
-                    if not row:
-                        continue
-                    data = (row[0] or '').strip().strip('"') if row[0] else ''
-                    nums = ''
-                    if len(row) > 4:
-                        nums = (row[4] or '').strip().strip('"')
-                    somma = 0
-                    if len(row) > 5 and row[5]:
-                        try:
-                            somma = int(row[5].strip().strip('"'))
-                        except ValueError:
-                            somma = 0
-                    if not data or not nums:
-                        continue
+            # Try utf-8-sig first, fallback to utf-16, utf-8
+            content = None
+            for enc in ("utf-8-sig", "utf-16", "utf-8"):
+                try:
+                    with open(self.tracking_path, "r", encoding=enc) as f:
+                        content = f.read()
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+            if content is None:
+                print(f"[ERROR] _import_tracking: cannot decode {self.tracking_path}")
+                return
+            from io import StringIO
+            reader = csv.reader(StringIO(content))
+            header = next(reader, None)
+            for row in reader:
+                if not row:
+                    continue
+                data = (row[0] or '').strip().strip('"') if row[0] else ''
+                nums = ''
+                if len(row) > 4:
+                    nums = (row[4] or '').strip().strip('"')
+                somma = 0
+                if len(row) > 5 and row[5]:
                     try:
-                        c.execute(
-                            "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
-                            (data, nums, somma),
-                        )
-                        added += 1
-                    except sqlite3.IntegrityError as e:
-                        print(f"[WARN] _import_tracking skip row: {e}")
-                        continue
+                        somma = int(row[5].strip().strip('"'))
+                    except ValueError:
+                        somma = 0
+                if not data or not nums:
+                    continue
+                try:
+                    c.execute(
+                        "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
+                        (data, nums, somma),
+                    )
+                    added += 1
+                except sqlite3.IntegrityError as e:
+                    print(f"[WARN] _import_tracking skip row: {e}")
+                    continue
         except Exception as e:
             print(f"[ERROR] _import_tracking: {e}")
         self.conn.commit()

@@ -6,7 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path('.').resolve()
 
 datas = []
-for f in ['superenalotto.csv', 'config.json', 'icon.ico']:
+for f in ['superenalotto.csv', 'config.json', 'icon.ico', 'tracking.csv']:
     p = PROJECT_ROOT / f
     if p.exists():
         datas.append((str(p), '.'))

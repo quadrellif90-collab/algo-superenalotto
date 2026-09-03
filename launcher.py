@@ -126,6 +126,9 @@ def show_first_run_notification(data_dir):
     if os.path.exists(sentinel):
         return
     try:
+        # Crea subito il sentinel per evitare blocchi ripetuti
+        with open(sentinel, 'w', encoding='utf-8') as f:
+            f.write('done')
         ctypes.windll.user32.MessageBoxW(
             0,
             "SuperEnalotto - Primo avvio\n\n"
@@ -136,11 +139,15 @@ def show_first_run_notification(data_dir):
             "SuperEnalotto",
             0x40,  # MB_ICONINFORMATION
         )
-        with open(sentinel, 'w', encoding='utf-8') as f:
-            f.write('done')
         log("Notifica primo avvio mostrata")
     except Exception as e:
         log(f"notification error: {e}")
+        # Assicura comunque che il sentinel esista
+        try:
+            with open(sentinel, 'w', encoding='utf-8') as f:
+                f.write('done')
+        except Exception:
+            pass
 
 
 def wait_server(max_attempts=30, delay=1):

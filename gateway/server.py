@@ -187,11 +187,16 @@ def start_server(open_browser_flag=True):
     engine = SuperenalottoEngine()
     SuperenalottoHandler.engine = engine
 
-    # Automatismi all'avvio: aggiorna nuove estrazioni + verifica schedine non verificate
+    # Automatismi all'avvio: re-importa tracking, aggiorna estrazioni, verifica schedine
     def _auto_tasks():
         import traceback
         try:
             time.sleep(5)  # lascia al server tempo di avviarsi e servire richieste
+            # Re-importa tracking.csv (potrebbe essere stato migrato dopo l'init)
+            try:
+                engine._import_tracking()
+            except Exception:
+                pass
             added, scraped = engine.scrape_historical(pages=1)
             print(f"[AUTO] scrape_historical: added={added}, scraped={scraped}", flush=True)
             if added > 0:
