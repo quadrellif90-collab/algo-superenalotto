@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 import webbrowser
-from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
+from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 from gateway.engine import SuperenalottoEngine, get_user_data_dir, migrate_db_if_needed
@@ -231,14 +231,15 @@ def start_server(open_browser_flag=True):
 
     threading.Thread(target=_auto_tasks, daemon=True).start()
 
-    server = HTTPServer(("127.0.0.1", PORT), SuperenalottoHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), SuperenalottoHandler)
+    server.timeout = 0.5  # rilascia GIL frequentemente per webview
     print(f"SuperEnalotto Server running on http://localhost:{PORT}")
 
     if open_browser_flag:
         threading.Timer(1.0, open_browser).start()
 
     try:
-        server.serve_forever()
+        server.serve_forever(poll_interval=0.05)  # poll veloce:rilascia GIL per webview
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:

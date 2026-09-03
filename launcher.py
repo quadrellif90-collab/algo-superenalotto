@@ -232,19 +232,12 @@ if __name__ == '__main__':
                     log(f"notification error: {e}")
             threading.Thread(target=_show_notification, daemon=True).start()
 
-        # webview.start() in thread separato: il server HTTP continua a servire
-        # richieste dal thread principale che rimane libero.
-        webview_thread = threading.Thread(target=webview.start, daemon=True)
-        webview_thread.start()
-
-        # Loop principale: tiene vivo il processo e riavvia backend se muore
-        while True:
-            time.sleep(5)
-            if not backend_thread.is_alive():
-                log("Backend thread morto, riavvio...")
-                backend_thread = threading.Thread(target=start_backend, daemon=True)
-                backend_thread.start()
-                time.sleep(5)
+        # webview.start() DEVE girare nel thread principale (STA per WinForms).
+        # Il server HTTP (ThreadingHTTPServer) gira nel backend_thread (daemon)
+        # e gestisce richieste in thread separati grazie a ThreadingHTTPServer.
+        log("Avvio webview.start()...")
+        webview.start()
+        log("webview.start() terminato")
     except KeyboardInterrupt:
         log("KeyboardInterrupt")
         print("\nChiusura in corso...")
