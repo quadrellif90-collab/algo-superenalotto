@@ -95,8 +95,11 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             try:
                 n = int(parse_qs(parsed.query).get("n", [1])[0])
                 n = max(1, min(5, n))
-                schedine = self.engine.genera_schedine(n)
-                self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
+                strategy = parse_qs(parsed.query).get("strategy", ["quartile"])[0]
+                schedine = self.engine.genera_schedine(n, strategy=strategy)
+                self._json_response([{
+                    "nums": s, "sum": sum(s), "strategy": strategy
+                } for s in schedine])
             except (ValueError, IndexError) as e:
                 self._json_response({"error": str(e)})
         elif path == "/api/backups":
@@ -111,6 +114,26 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 exists = os.path.exists(backup_dir)
                 count = len(os.listdir(backup_dir)) if exists else 0
                 self._json_response({"exists": exists, "count": count})
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/backtest":
+            try:
+                strategy = parse_qs(parsed.query).get("strategy", ["quartile"])[0]
+                n = int(parse_qs(parsed.query).get("n", [50])[0])
+                result = self.engine.run_backtest(strategy=strategy, n=n)
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/heatmap":
+            try:
+                result = self.engine.get_heatmap_data()
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/trend":
+            try:
+                result = self.engine.get_trend_data()
+                self._json_response(result)
             except Exception as e:
                 self._json_response({"error": str(e)})
         else:

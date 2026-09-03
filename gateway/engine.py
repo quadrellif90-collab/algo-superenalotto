@@ -318,9 +318,69 @@ class SuperenalottoEngine:
                 return c
         return sorted(random.sample(range(1, 91), 6))
 
-    def genera_schedine(self, n=1):
-        """Genera n schedine con QuartileSpread."""
-        return [self.quartile_spread() for _ in range(n)]
+    def genera_schedine(self, n=1, strategy='quartile'):
+        """Genera n schedine con strategia specificata."""
+        strategies = {
+            'quartile': self.quartile_spread,
+            'hotcold': self.hot_cold_spread,
+            'antirecent': self.anti_recent_spread,
+            'mix': self.mixed_strategy,
+        }
+        gen = strategies.get(strategy, self.quartile_spread)
+        return [gen() for _ in range(n)]
+
+    def hot_cold_spread(self, n_hot=3, n_cold=3):
+        """HotCold: 3-4 numeri caldi (ultime 10), 2-3 freddi (mai o raramente usciti)."""
+        if not self.records:
+            return sorted(random.sample(range(1, 91), 6))
+        # Conta apparizioni in ultime 10 estrazioni
+        recent = self.records[-10:]
+        hot_nums = []
+        all_recent = set()
+        for r in recent:
+            all_recent.update(r['nums'])
+        hot = sorted(all_recent)
+        cold = sorted(set(range(1, 91)) - all_recent)
+        # Caldi
+        n_hot = min(n_hot, len(hot))
+        n_cold = min(n_cold, len(cold))
+        selected = random.sample(hot, n_hot) + random.sample(cold, n_cold)
+        selected = sorted(selected)
+        # Riempi fin a 6
+        remaining = 6 - len(selected)
+        if remaining > 0:
+            extra = random.sample([x for x in range(1, 91) if x not in selected], remaining)
+            selected = sorted(selected + extra)
+        return selected
+
+    def anti_recent_spread(self, exclude_last=5):
+        """AntiRecent: evita numeri ultime 5 estrazioni, preferisce meno recenti."""
+        if not self.records:
+            return sorted(random.sample(range(1, 91), 6))
+        recent_nums = set()
+        for r in self.records[-exclude_last:]:
+            recent_nums.update(r['nums'])
+        available = set(range(1, 91)) - recent_nums
+        selected = sorted(random.sample(list(available), 6))
+        return selected
+
+    def mixed_strategy(self):
+        """Mix: 2 HotCold + 2 AntiRecent + 2 QuartileSpread, mescolati."""
+        qc = self.quartile_spread()
+        hc = self.hot_cold_spread(n_hot=2, n_cold=1)
+        ar = self.anti_recent_spread(exclude_last=5)
+        # 2 da HotCold, 2 da AntiRecent, 2 da Quartile (unici)
+        selected = set()
+        selected.update(random.sample(hc, 2))
+        selected.update(random.sample(ar, 2))
+        selected.update(random.sample(qc, 2))
+        # Riempi se duplicati
+        while len(selected) < 6:
+            pool = qc + hc + ar + list(range(1, 91))
+            extra = random.choice(pool)
+            if extra not in selected:
+                selected.add(extra)
+        return sorted(list(selected)[:6])
 
     def auto_check_new_draws(self):
         """All'avvio: verifica automaticamente le schedine per giorni con estrazione."""
@@ -795,3 +855,102 @@ class SuperenalottoEngine:
             if b["timestamp"].startswith(today_prefix):
                 return {"skipped": True, "reason": "backup oggi gia esistente"}
         return self.backup_dati()
+
+    def run_backtest(self, strategy='quartile', n=50):
+        """Backtest: per ogni estrazione, genera schedina e verifica se avrebbe vinto."""
+        if len(self.records) < n:
+            n = len(self.records)
+        
+        total_win = 0.0
+        total_spent = 0
+        total_return = 0.0
+        wins = []
+        
+        for i in range(len(self.records) - n, len(self.records)):
+            actual = self.records[i]
+            data = actual['data']
+            actual_nums = list(actual['nums'])
+            jolly = actual['jolly']
+            
+            # Genera schedina BEFORE this draw (use data before i)
+            # Temporarily set records to exclude future data
+            saved_records = self.records[:i]
+            old_records = self.records
+            self.records = saved_records
+            
+            try:
+                schedina = self.genera_schedine(1, strategy=strategy)[0]
+            except Exception:
+                schedina = sorted(random.sample(range(1, 91), 6))
+            finally:
+                self.records = old_records
+            
+            matches = len(set(schedina) & set(actual_nums))
+            jolly_hit = jolly in schedina if jolly else False
+            
+            total_spent += 1
+            premio = 0.0
+            
+            if matches == 6:
+                premio = PREMI_DEFAULT[6]
+            elif matches == 5:
+                if jolly_hit:
+                    premio = PREMI_DEFAULT[5.5]
+                else:
+                    premio = PREMI_DEFAULT[5]
+            elif matches == 4:
+                premio = PREMI_DEFAULT[4]
+            elif matches == 3:
+                premio = PREMI_DEFAULT[3]
+            elif matches == 2:
+                premio = PREMI_DEFAULT[2]
+            
+            if premio > 0:
+                wins.append({"data": data, "matches": matches, "jolly_hit": jolly_hit, "premio": premio})
+                total_return += premio
+                total_win += 1
+        
+        roi = ((total_return / total_spent - 1) * 100) if total_spent > 0 else 0
+        
+        return {
+            "strategy": strategy,
+            "n": n,
+            "total_spent": total_spent,
+            "total_return": total_return,
+            "win_count": total_win,
+            "win_rate": round(total_win / total_spent * 100, 1) if total_spent > 0 else 0,
+            "roi": round(roi, 1),
+            "wins": wins
+        }
+
+    def get_heatmap_data(self):
+        """Restituisce frequenza di ogni numero (1-90) per heatmap."""
+        freq = {n: 0 for n in range(1, 91)}
+        for r in self.records:
+            for n in r['nums']:
+                freq[n] = freq.get(n, 0) + 1
+        return {"freq": freq, "total": len(self.records)}
+
+    def get_trend_data(self):
+        """Restituisce trend caldi/freddi per ultime 20 estrazioni."""
+        recent = self.records[-20:]
+        hot = set()
+        for r in recent:
+            hot.update(r['nums'])
+        all_nums = set(range(1, 91))
+        cold = all_nums - hot
+        
+        # Conta apparizioni
+        hot_counts = {n: 0 for n in hot}
+        for r in recent:
+            for n in r['nums']:
+                if n in hot_counts:
+                    hot_counts[n] += 1
+        
+        hot_sorted = sorted(hot_counts.items(), key=lambda x: x[1], reverse=True)
+        
+        return {
+            "hot": [{"num": n, "count": c} for n, c in hot_sorted[:15]],
+            "cold": sorted(list(cold))[:15],
+            "recent_draws": [r['data'] for r in recent]
+        }

@@ -33,6 +33,7 @@
             <button class="tab" data-tab="premi">🏆 Premi</button>
             <button class="tab" data-tab="storico">🎱 Storico</button>
             <button class="tab" data-tab="analisi">📈 Analisi</button>
+            <button class="tab" data-tab="strategie">🎯 Strategie</button>
             <button class="tab" data-tab="tools">🔧 Toolbox</button>
             <div style="margin-top:auto; padding:12px; font-size:11px; color:var(--text-muted); border-top:1px solid var(--border);">
                 <div>Backup: <span id="backupInfo">giornaliero</span></div>
@@ -136,7 +137,27 @@
                 </section>
             </div>
 
-             <!-- TAB: ANALISI -->
+            <!-- TAB: STRATEGIE -->
+            <div class="tab-content" id="tab-strategie" style="display:none; width:100%;">
+                <section class="panel">
+                    <h2>🎯 Strategie di Generazione</h2>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <select id="strategiaSelect" style="padding:6px; flex:1;">
+                            <option value="quartile">📊 QuartileSpread (default)</option>
+                            <option value="hotcold">🔥 HotCold (caldi/freddi)</option>
+                            <option value="antirecent">❄️ AntiRecent (evita recenti)</option>
+                            <option value="mix">🎲 Mix (tutte e 3)</option>
+                        </select>
+                        <button class="btn btn-primary" id="btnGenStrategia" style="flex:0;">✨ Genera</button>
+                    </div>
+                    <div class="generated" id="strategiaGenerated"></div>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-success" id="btnSalvaStrategia" style="font-size:11px;">💾 Salva Schedina</button>
+                    </div>
+                    <div id="strategiaStatus" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
+                </section>
+            </div>
+
              <div class="tab-content" id="tab-analisi" style="display:none; width:100%;">
                  <section class="panel">
                      <h2>📈 Analisi Strategie</h2>
