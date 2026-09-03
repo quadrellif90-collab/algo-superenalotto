@@ -183,9 +183,12 @@ class SuperenalottoEngine:
         self.conn.commit()
 
     def _import_tracking(self):
+        """Importa giocate da tracking.csv, SOSTITUENDO quelle esistenti per mantenere persistenza."""
         c = self.conn.cursor()
         if not os.path.exists(self.tracking_path):
             return
+        # Puliamo giocate esistenti per evitare duplicati o ticket non più presenti in tracking.csv
+        c.execute("DELETE FROM giocate")
         added = 0
         try:
             # Try utf-8-sig first, fallback to utf-16, utf-8
@@ -218,10 +221,16 @@ class SuperenalottoEngine:
                         somma = 0
                 if not data or not nums:
                     continue
+                # verificato è nell'ultima colonna (index 7 o più)
+                verificato = 0
+                if len(row) > 7 and row[7]:
+                    verificatoval = str(row[7]).strip().strip('"').lower()
+                    if verificatoval in ('1', 'true', 'yes', 'sì', 'verificato'):
+                        verificato = 1
                 try:
                     c.execute(
-                        "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,0,0.0)",
-                        (data, nums, somma),
+                        "INSERT OR IGNORE INTO giocate (data,numeri,somma,verificato,vincita) VALUES (?,?,?,? ,0.0)",
+                        (data, nums, somma, verificato),
                     )
                     added += 1
                 except sqlite3.IntegrityError as e:
@@ -684,13 +693,11 @@ class SuperenalottoEngine:
             self.conn.close()
 
     def save_tracking(self):
-        """Salva tutte le giocate non verificate in tracking.csv per la persistenza."""
+        """Salva tutte le giocate in tracking.csv per la persistenza.
+        Salva TUTTE le giocate (vere e non verificate) per mantenere lo stato."""
         c = self.conn.cursor()
-        c.execute("SELECT data, numeri, somma, verificato FROM giocate WHERE verificato=0")
+        c.execute("SELECT data, numeri, somma, verificato FROM giocate ORDER BY data")
         rows = c.fetchall()
-        
-        if not rows:
-            return {"saved": 0}
         
         import csv
         data_dir = get_user_data_dir()
@@ -699,7 +706,92 @@ class SuperenalottoEngine:
         with open(tracking_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             for data, numeri, somma, verificato in rows:
+                # Format: data, giornata, budget, schede, numeri, somma, jackpot, verificato
                 writer.writerow([data, "", "", numeri, somma, "", str(verificato == 1)])
         
         self.conn.commit()
         return {"saved": len(rows)}
+
+    def backup_dati(self):
+        """Crea un backup giornaliero del DB e tracking.csv in Documents/SuperEnalotto/backups/."""
+        from datetime import datetime
+        data_dir = get_user_data_dir()
+        backup_dir = os.path.join(data_dir, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Backup DB
+        db_src = self.db_path
+        db_dst = os.path.join(backup_dir, f"superenalotto_{timestamp}.db")
+        if os.path.exists(db_src):
+            import shutil
+            shutil.copy2(db_src, db_dst)
+        
+        # Backup tracking.csv
+        tracking_src = self.tracking_path
+        tracking_dst = os.path.join(backup_dir, f"tracking_{timestamp}.csv")
+        if os.path.exists(tracking_src):
+            import shutil
+            shutil.copy2(tracking_src, tracking_dst)
+        
+        return {"backup": timestamp, "dir": backup_dir}
+
+    def list_backups(self):
+        """Lista tutti i backup disponibili."""
+        import glob
+        data_dir = get_user_data_dir()
+        backup_dir = os.path.join(data_dir, "backups")
+        if not os.path.exists(backup_dir):
+            return []
+        
+        backups = []
+        # Find all unique timestamps from backup filenames
+        seen = set()
+        for f in os.listdir(backup_dir):
+            if f.startswith("superenalotto_") and f.endswith(".db"):
+                ts = f.replace("superenalotto_", "").replace(".db", "")
+                if ts not in seen:
+                    seen.add(ts)
+                    st = os.stat(os.path.join(backup_dir, f))
+                    backups.append({
+                        "timestamp": ts,
+                        "size_db": f"{os.path.getsize(os.path.join(backup_dir, f)) // 1024}KB",
+                        "date": st.st_mtime
+                    })
+        
+        backups.sort(key=lambda x: x["date"], reverse=True)
+        for b in backups:
+            del b["date"]  # rimuove raw timestamp
+        return backups
+
+    def restore_backup(self, timestamp):
+        """Ripristina un backup specifico."""
+        import shutil
+        data_dir = get_user_data_dir()
+        backup_dir = os.path.join(data_dir, "backups")
+        
+        db_src = os.path.join(backup_dir, f"superenalotto_{timestamp}.db")
+        tracking_src = os.path.join(backup_dir, f"tracking_{timestamp}.csv")
+        
+        restored = []
+        if os.path.exists(db_src):
+            shutil.copy2(db_src, self.db_path)
+            restored.append("db")
+            # Ricarica i records
+            self._load_records()
+        if os.path.exists(tracking_src):
+            shutil.copy2(tracking_src, self.tracking_path)
+            restored.append("tracking")
+        
+        return {"restored": restored, "timestamp": timestamp}
+
+    def backup_giornaliero(self):
+        """Se non esiste backup oggi, creane uno automatico."""
+        from datetime import datetime, date
+        backups = self.list_backups()
+        today_prefix = date.today().strftime("%Y%m%d")
+        for b in backups:
+            if b["timestamp"].startswith(today_prefix):
+                return {"skipped": True, "reason": "backup oggi gia esistente"}
+        return self.backup_dati()

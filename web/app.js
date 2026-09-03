@@ -11,6 +11,7 @@ async function init() {
     await loadStats();
     await loadPremi();
     await loadStorico(40);
+    await loadBackups();
     bindEvents();
 }
 
@@ -31,6 +32,10 @@ function bindEvents() {
     if (btnImp) btnImp.addEventListener('click', importaGiocata);
     const btnClr = document.getElementById('btnClearGiocate');
     if (btnClr) btnClr.addEventListener('click', clearGiocate);
+    const btnBak = document.getElementById('btnBackup');
+    if (btnBak) btnBak.addEventListener('click', backupNow);
+    const btnRes = document.getElementById('btnRestoreBackup');
+    if (btnRes) btnRes.addEventListener('click', restoreBackup);
 }
 
 function switchTab(name) {
@@ -156,7 +161,8 @@ function showVerifica(result) {
     c.innerHTML=html; document.getElementById('modalVerifica').classList.add('active');
 }
 function closeModal(){ document.getElementById('modalVerifica').classList.remove('active'); }
-async function cancellaGiocata(id){ if(!confirm('Cancellare?')) return; await apiPost('/api/cancella',{id}); await loadGiocate(); }
+function showNotification(msg) { document.getElementById('statusBar').textContent = msg; setTimeout(() => { if(document.getElementById('statusBar').textContent===msg) document.getElementById('statusBar').textContent='Pronto'; }, 4000); }
+async function cancellaGiocata(id){ if(!confirm('Cancellare?')) return; const r=await apiPost('/api/cancella',{id}); if(r.ok){ showNotification(r.notification||'Schedina cancellata'); await loadGiocate(); } }
 function setStatus(msg){ document.getElementById('statusBar').textContent=msg; }
 
 async function aggiornaStorico(){
@@ -197,7 +203,7 @@ async function clearGiocate() {
     try {
         const r = await apiPost('/api/clear_giocate', {});
         if (r.ok || r.deleted) {
-            document.getElementById('toolStatus').textContent='Tutte le giocate cancellate';
+            showNotification(r.notification||'Tutte le giocate cancellate');
             document.getElementById('btnClearGiocate').style.display='none';
             await loadGiocate();
         }
@@ -210,4 +216,54 @@ async function checkShowClear() {
         const btn = document.getElementById('btnClearGiocate');
         if (btn) btn.style.display = data.length > 0 ? 'block' : 'none';
     } catch {}
+}
+
+async function loadBackups() {
+    try {
+        const data = await apiGet('/api/backups');
+        const sel = document.getElementById('backupSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Seleziona backup</option>';
+        if (data.backups && data.backups.length > 0) {
+            sel.style.display = 'block';
+            data.backups.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.timestamp;
+                opt.textContent = `${b.timestamp} (${b.size_db})`;
+                sel.appendChild(opt);
+            });
+        } else {
+            sel.style.display = 'none';
+        }
+    } catch {}
+}
+
+async function backupNow() {
+    const btn = document.getElementById('btnBackup');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '💾 Backup in corso...';
+    try {
+        const r = await apiPost('/api/backup', {});
+        showNotification(`Backup: ${r.backup}`);
+        await loadBackups();
+    } catch {
+        showNotification('Errore backup');
+    }
+    btn.disabled = false;
+    btn.textContent = '💾 Backup Ora';
+}
+
+async function restoreBackup() {
+    const sel = document.getElementById('backupSelect');
+    if (!sel || !sel.value) { showNotification('Nessun backup selezionato'); return; }
+    if (!confirm(`Ripristinare backup ${sel.value}? Perderai le modifiche successive.`)) return;
+    try {
+        const r = await apiPost('/api/restore_backup', {timestamp: sel.value});
+        showNotification(`Ripristinato: ${r.restored.join(', ')}`);
+        await loadGiocate();
+        await loadBackups();
+    } catch {
+        showNotification('Errore ripristino');
+    }
 }

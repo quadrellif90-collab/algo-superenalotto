@@ -166,7 +166,14 @@
                          <button class="btn btn-primary" id="btnImportaGiocata">➕ Importa Giocata</button>
                          <button class="btn btn-danger" id="btnClearGiocate" style="display:none;">🗑️ Cancella Tutte Giocate</button>
                      </div>
-                     <div id="toolStatus" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
+                      <div style="margin-top:6px;">
+                          <button class="btn btn-primary" id="btnBackup" style="font-size:11px; padding:4px 8px; margin-right:4px;">💾 Backup Ora</button>
+                          <button class="btn btn-warning" id="btnRestoreBackup" style="font-size:11px; padding:4px 8px; margin-right:4px;">🔄 Ripristina</button>
+                          <select id="backupSelect" style="flex:1; padding:4px; font-size:11px; display:none; margin-left:8px;">
+                            <option value="">Seleziona backup</option>
+                          </select>
+                      </div>
+                      <div id="toolStatus" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
                      <div style="margin-top:16px;">
                          <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/giocate'" target='_blank' style="font-size:11px; padding:4px 8px;">📄 JSON Giocate</button>
                          <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/estrazioni?n=20'" target='_blank' style="font-size:11px; padding:4px 8px; margin-left:4px;">📄 JSON Estrazioni</button>

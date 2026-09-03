@@ -99,6 +99,20 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
             except (ValueError, IndexError) as e:
                 self._json_response({"error": str(e)})
+        elif path == "/api/backups":
+            try:
+                result = self.engine.list_backups()
+                self._json_response({"backups": result})
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/backup_info":
+            try:
+                backup_dir = os.path.join(get_user_data_dir(), "backups")
+                exists = os.path.exists(backup_dir)
+                count = len(os.listdir(backup_dir)) if exists else 0
+                self._json_response({"exists": exists, "count": count})
+            except Exception as e:
+                self._json_response({"error": str(e)})
         else:
             # Static files: usa parent class (gestisce charset automaticamente per text/*)
             super().do_GET()
@@ -154,7 +168,7 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 if gid:
                     self.engine.cancella_giocata(gid)
                     self.engine.save_tracking()
-                self._json_response({"ok": True})
+                self._json_response({"ok": True, "notification": "Schedina cancellata"})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
         elif path == "/api/clear_giocate":
@@ -162,7 +176,7 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 c = self.engine.conn.cursor()
                 c.execute("DELETE FROM giocate")
                 self.engine.conn.commit()
-                self._json_response({"ok": True, "deleted": True})
+                self._json_response({"ok": True, "deleted": True, "notification": "Tutte le schedine cancellate"})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
         elif path == "/api/aggiorna_storico":
@@ -194,6 +208,29 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response(result)
             except Exception as e:
                 self._json_response({"error": str(e)})
+        elif path == "/api/backup":
+            try:
+                result = self.engine.backup_dati()
+                self._json_response({"ok": True, **result})
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/backups":
+            try:
+                result = self.engine.list_backups()
+                self._json_response({"backups": result})
+            except Exception as e:
+                self._json_response({"error": str(e)})
+        elif path == "/api/restore_backup":
+            try:
+                data = self._read_json()
+                ts = data.get("timestamp", "")
+                if not ts:
+                    self._json_response({"ok": False, "error": "timestamp richiesto"})
+                    return
+                result = self.engine.restore_backup(ts)
+                self._json_response({"ok": True, **result})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
         else:
             self.send_error(404)
 
@@ -237,6 +274,12 @@ def start_server(open_browser_flag=True):
                 engine._load_records()
             result = engine.verifica_tutte(only_unchecked=True)
             print(f"[AUTO] auto_check_new_draws: checked={result['checked']} skipped={result['skipped']}", flush=True)
+            # Salva tracking con stato verificato aggiornato
+            engine.save_tracking()
+            print(f"[AUTO] tracking salvato", flush=True)
+            # Backup automatico giornaliero
+            backup_result = engine.backup_giornaliero()
+            print(f"[AUTO] backup: {backup_result}", flush=True)
         except Exception as e:
             print(f"[WARN] auto_tasks: {e}\n{traceback.format_exc()}", flush=True)
 

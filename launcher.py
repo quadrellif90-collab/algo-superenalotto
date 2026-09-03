@@ -237,6 +237,10 @@ if __name__ == '__main__':
         log("Avvio webview.start()...")
         webview.start()
         log("webview.start() terminato")
+        # Se webview.start() ritorna, manteniamo il backend vivo
+        # (la finestra potrebbe chiudersi ma il server debe continuare o termina)
+        while backend_thread.is_alive():
+            time.sleep(1)
     except KeyboardInterrupt:
         log("KeyboardInterrupt")
         print("\nChiusura in corso...")
