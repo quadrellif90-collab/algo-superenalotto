@@ -154,12 +154,35 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response({"ok": True})
             except Exception as e:
                 self._json_response({"ok": False, "error": str(e)})
+        elif path == "/api/clear_giocate":
+            try:
+                c = self.engine.conn.cursor()
+                c.execute("DELETE FROM giocate")
+                self.engine.conn.commit()
+                self._json_response({"ok": True, "deleted": True})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
         elif path == "/api/aggiorna_storico":
             try:
                 result = self.engine.aggiorna_storico()
                 self._json_response(result)
             except Exception as e:
                 self._json_response({"error": str(e)})
+        elif path == "/api/chiudi":
+            self._json_response({"ok": True})
+        elif path == "/api/importa_giocata":
+            try:
+                data = self._read_json()
+                data_str = data.get("data", "")
+                nums = data.get("numeri", [])
+                if not nums or len(nums) != 6:
+                    self._json_response({"ok": False, "error": "Devi inserire 6 numeri"})
+                    return
+                somma = sum(nums)
+                ok = self.engine.salva_giocata(data_str, nums, somma)
+                self._json_response({"ok": ok, "data": data_str, "numeri": nums})
+            except Exception as e:
+                self._json_response({"ok": False, "error": str(e)})
         else:
             self.send_error(404)
 

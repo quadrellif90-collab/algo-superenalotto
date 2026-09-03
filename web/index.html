@@ -33,6 +33,7 @@
             <button class="tab" data-tab="premi">🏆 Premi</button>
             <button class="tab" data-tab="storico">🎱 Storico</button>
             <button class="tab" data-tab="analisi">📈 Analisi</button>
+            <button class="tab" data-tab="tools">🔧 Toolbox</button>
             <div style="margin-top:auto; padding:12px; font-size:11px; color:var(--text-muted); border-top:1px solid var(--border);">
                 <div>Backup: <span id="backupInfo">giornaliero</span></div>
                 <div>Avvio: minimizzato</div>
@@ -135,18 +136,43 @@
                 </section>
             </div>
 
-            <!-- TAB: ANALISI -->
-            <div class="tab-content" id="tab-analisi" style="display:none; width:100%;">
-                <section class="panel">
-                    <h2>📈 Analisi Strategie</h2>
-                    <div style="display:flex; gap:8px; margin-bottom:12px;">
-                        <button class="btn btn-primary" id="btnValuta">🏅 Valuta Algoritmi (50 estrazioni)</button>
-                        <button class="btn btn-warning" id="btnGrafici">📊 Mostra Grafici</button>
-                    </div>
-                    <div id="valutaResult" style="font-size:13px; white-space:pre-wrap; background:var(--bg); padding:12px; border-radius:8px; border:1px solid var(--border);"></div>
-                    <div id="graficiContainer" style="margin-top:16px;"></div>
-                </section>
-            </div>
+             <!-- TAB: ANALISI -->
+             <div class="tab-content" id="tab-analisi" style="display:none; width:100%;">
+                 <section class="panel">
+                     <h2>📈 Analisi Strategie</h2>
+                     <div style="display:flex; gap:8px; margin-bottom:12px;">
+                         <button class="btn btn-primary" id="btnValuta">🏅 Valuta Algoritmi (50 estrazioni)</button>
+                         <button class="btn btn-warning" id="btnGrafici">📊 Mostra Grafici</button>
+                     </div>
+                     <div id="valutaResult" style="font-size:13px; white-space:pre-wrap; background:var(--bg); padding:12px; border-radius:8px; border:1px solid var(--border);"></div>
+                     <div id="graficiContainer" style="margin-top:16px;"></div>
+                 </section>
+             </div>
+
+             <!-- TAB: TOOLS (Toolbox per giocate vecchie) -->
+             <div class="tab-content" id="tab-tools" style="display:none; width:100%;">
+                 <section class="panel">
+                     <h2>🔧 Importa Giocata Vecchia</h2>
+                     <p class="subtitle">Inserisci una giocata passata: data + 6 numeri. Verrà verificata automaticamente.</p>
+                     <div class="form-row">
+                         <label for="toolData">Data (YYYY-MM-DD):</label>
+                         <input type="text" id="toolData" placeholder="2026-08-29" value="" style="flex:1; padding:6px;">
+                     </div>
+                     <div class="form-row">
+                         <label for="toolNumeri">Numeri (6 separati da -):</label>
+                         <input type="text" id="toolNumeri" placeholder="7-14-27-66-70-88" value="" style="flex:1; padding:6px;">
+                     </div>
+                     <div style="display:flex; gap:8px; margin-top:12px;">
+                         <button class="btn btn-primary" id="btnImportaGiocata">➕ Importa Giocata</button>
+                         <button class="btn btn-danger" id="btnClearGiocate" style="display:none;">🗑️ Cancella Tutte Giocate</button>
+                     </div>
+                     <div id="toolStatus" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
+                     <div style="margin-top:16px;">
+                         <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/giocate'" target='_blank' style="font-size:11px; padding:4px 8px;">📄 JSON Giocate</button>
+                         <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/estrazioni?n=20'" target='_blank' style="font-size:11px; padding:4px 8px; margin-left:4px;">📄 JSON Estrazioni</button>
+                     </div>
+                 </section>
+             </div>
         </main>
         </div>
 

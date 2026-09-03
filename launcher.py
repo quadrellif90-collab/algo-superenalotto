@@ -173,7 +173,7 @@ def wait_server(max_attempts=30, delay=1):
 
 if __name__ == '__main__':
     try:
-        # Migra DB/tracking/config da accanto all'exe e mostra notifica primo avvio
+        # Migra DB/tracking/config
         log("Import gateway.engine...")
         from gateway.engine import get_user_data_dir, migrate_db_if_needed
         log("gateway.engine imported ok")
@@ -183,9 +183,13 @@ if __name__ == '__main__':
         
         migrate_db_if_needed()
         log("Migrazione completata")
-        
-        show_first_run_notification(data_dir)
-        log("Notifica completata")
+
+        # Mostra notifica primo avvio in un THREAD separato con timeout,
+        # dopo che il server e' pronto. Se non c'e' sessione desktop, non blocca.
+        first_run = not os.path.exists(os.path.join(data_dir, '.first_run_done'))
+        if first_run:
+            # Crea sentinel SUBITO (evita notifiche ripetute se MessageBox blocca)
+            open(os.path.join(data_dir, '.first_run_done'), 'w').write('done')
 
     except Exception as e:
         log(f"ERRORE setup dati: {e}\n{traceback.format_exc()}")
@@ -209,6 +213,24 @@ if __name__ == '__main__':
         log("Server pronto, apro browser...")
         webbrowser.open(URL)
         print(f"SuperEnalotto aperto su {URL}")
+
+        # Mostra notifica primo avvio (in thread separato, post-server)
+        if first_run:
+            def _show_notification():
+                try:
+                    ctypes.windll.user32.MessageBoxW(
+                        0,
+                        "SuperEnalotto - Primo avvio\n\n"
+                        "I dati (database, giocate, configurazione) vengono salvati in:\n"
+                        f"{data_dir}\n\n"
+                        "Puoi spostare SuperEnalotto.exe in qualsiasi cartella: "
+                        "i dati resteranno in Documents.",
+                        "SuperEnalotto",
+                        0x40,
+                    )
+                except Exception as e:
+                    log(f"notification error: {e}")
+            threading.Thread(target=_show_notification, daemon=True).start()
 
         while True:
             time.sleep(5)

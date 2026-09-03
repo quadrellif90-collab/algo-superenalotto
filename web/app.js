@@ -27,6 +27,10 @@ function bindEvents() {
     if (btnVal) btnVal.addEventListener('click', valuta);
     const btnGraf = document.getElementById('btnGrafici');
     if (btnGraf) btnGraf.addEventListener('click', mostraGrafici);
+    const btnImp = document.getElementById('btnImportaGiocata');
+    if (btnImp) btnImp.addEventListener('click', importaGiocata);
+    const btnClr = document.getElementById('btnClearGiocate');
+    if (btnClr) btnClr.addEventListener('click', clearGiocate);
 }
 
 function switchTab(name) {
@@ -83,6 +87,7 @@ async function loadGiocate() {
     document.getElementById('statM2').textContent=m2;
     document.getElementById('statM3').textContent=m3;
     document.getElementById('statM4').textContent=m4;
+    checkShowClear();
 }
 
 async function loadStats() {
@@ -170,4 +175,39 @@ async function mostraGrafici(){
     const c=document.getElementById('graficiContainer');
     c.innerHTML='<p style="color:var(--text-muted)">Generazione grafici...</p>';
     try { const r=await apiGet('/api/grafici'); if(r.img){ c.innerHTML=`<img src="${r.img}" style="max-width:100%; border:1px solid var(--border); border-radius:8px;">`; } else c.textContent=r.msg||'Grafici non disponibili'; } catch { c.textContent='Errore grafici'; }
+}
+
+async function importaGiocata() {
+    const status = document.getElementById('toolStatus');
+    const data = document.getElementById('toolData').value.trim();
+    const numeriStr = document.getElementById('toolNumeri').value.trim();
+    if (!data || !numeriStr) { status.textContent='Inserisci data e numeri'; return; }
+    const nums = numeriStr.split(/[-,\s]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x));
+    if (nums.length !== 6) { status.textContent='Devi inserire esattamente 6 numeri'; return; }
+    status.textContent='Importazione...';
+    try {
+        const r = await apiPost('/api/importa_giocata', { data: data, numeri: nums });
+        if (r.ok) { status.textContent=`Importata! Data: ${data}, Somma: ${nums.reduce((a,b)=>a+b,0)}. Verifica con "Verifica Tutte".`; document.getElementById('toolNumeri').value=''; }
+        else status.textContent = `Errore: ${r.error||'bloccato'}`;
+    } catch(e) { status.textContent='Errore rete'; }
+}
+
+async function clearGiocate() {
+    if (!confirm('Cancellare TUTTE le giocate?')) return;
+    try {
+        const r = await apiPost('/api/clear_giocate', {});
+        if (r.ok || r.deleted) {
+            document.getElementById('toolStatus').textContent='Tutte le giocate cancellate';
+            document.getElementById('btnClearGiocate').style.display='none';
+            await loadGiocate();
+        }
+    } catch {}
+}
+
+async function checkShowClear() {
+    try {
+        const data = await apiGet('/api/giocate');
+        const btn = document.getElementById('btnClearGiocate');
+        if (btn) btn.style.display = data.length > 0 ? 'block' : 'none';
+    } catch {}
 }
