@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SuperEnalotto Launcher
-- Singola istanza via lock file
-- Avvia backend Bottle in-thread
+SuperEnalotto Launcher v8.2
+- Singola istanza via lock file in Documents/SuperEnalotto
+- Avvia backend HTTP in-thread (porta 8766)
 - Apre browser predefinito su http://localhost:8766
+- Dati persistenti in Documents/SuperEnalotto/
 """
 
 import os
@@ -15,6 +16,23 @@ import urllib.request
 import urllib.error
 import webbrowser
 import ctypes
+import traceback
+
+# Log su file per debug (console=False nel build exe)
+LOG_FILE = os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto', 'launcher.log')
+
+def log(msg):
+    try:
+        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+        with open(LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(f"{msg}\n")
+    except Exception:
+        pass
+
+log(f"=== LAUNCHER START v8.2 ===")
+log(f"Executable: {sys.executable}")
+log(f"Frozen: {getattr(sys, 'frozen', False)}")
+log(f"MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}")
 
 if getattr(sys, 'frozen', False):
     APP_DIR = os.path.dirname(sys.executable)
@@ -23,21 +41,32 @@ else:
 
 PORT = 8766
 URL = f"http://localhost:{PORT}"
-LOCK_PATH = os.path.join(APP_DIR, '.superenalotto.lock')
 
-# Aggiungi gateway al path
-GATEWAY_DIR = os.path.join(APP_DIR, 'gateway')
-if GATEWAY_DIR not in sys.path:
-    sys.path.insert(0, GATEWAY_DIR)
+# Lock file in Documents/SuperEnalotto (portable, non accanto all'EXE)
+def get_data_dir():
+    data_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto')
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
 
+LOCK_PATH = os.path.join(get_data_dir(), '.superenalotto.lock')
+
+# In frozen, i moduli gateway sono in _MEIPASS (hiddenimports), non serve sys.path
+if not getattr(sys, 'frozen', False):
+    GATEWAY_DIR = os.path.join(APP_DIR, 'gateway')
+    if GATEWAY_DIR not in sys.path:
+        sys.path.insert(0, GATEWAY_DIR)
+
+log("Imports: stdlib ok")
 
 def acquire_lock():
     try:
         import msvcrt
         fp = open(LOCK_PATH, 'w')
         msvcrt.locking(fp.fileno(), msvcrt.LK_NBLCK, 1)
+        log("Lock acquisito")
         return fp
-    except Exception:
+    except Exception as e:
+        log(f"acquire_lock FAIL: {e}")
         return None
 
 
@@ -46,10 +75,11 @@ def release_lock(fp):
         import msvcrt
         msvcrt.locking(fp.fileno(), msvcrt.LK_UNLCK, 1)
         fp.close()
-    except Exception:
-        pass
+    except Exception as e:
+        log(f"release_lock msvcrt error: {e}")
     try:
         os.remove(LOCK_PATH)
+        log("Lock file rimosso")
     except OSError:
         pass
 
@@ -58,7 +88,11 @@ def bring_existing_to_front():
     try:
         import win32gui
         import win32con
+    except ImportError as e:
+        log(f"win32gui/win32con not available: {e}")
+        return
 
+    try:
         def _enum(hwnd, _):
             if win32gui.IsWindowVisible(hwnd):
                 title = win32gui.GetWindowText(hwnd)
@@ -69,66 +103,121 @@ def bring_existing_to_front():
             return True
 
         win32gui.EnumWindows(_enum, None)
-    except Exception:
-        pass
+        log("bring_existing_to_front ok")
+    except Exception as e:
+        log(f"bring_existing_to_front error: {e}")
 
 
 def start_backend():
     try:
+        log("Thread backend: import gateway.server...")
         from gateway.server import start_server
+        log("Thread backend: start_server()...")
         start_server(open_browser_flag=False)
     except Exception as e:
-        print(f"[ERROR] Backend failed: {e}")
+        log(f"Thread backend ERRORE: {e}\n{traceback.format_exc()}")
+        print(f"[ERROR] Backend server failed: {e}")
+        raise
+
+
+def show_first_run_notification(data_dir):
+    """Mostra un MessageBox Windows al primo avvio indicando dove sono salvati i dati."""
+    sentinel = os.path.join(data_dir, '.first_run_done')
+    if os.path.exists(sentinel):
+        return
+    try:
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            "SuperEnalotto - Primo avvio\n\n"
+            "I dati (database, giocate, configurazione) vengono salvati in:\n"
+            f"{data_dir}\n\n"
+            "Puoi spostare SuperEnalotto.exe in qualsiasi cartella: "
+            "i dati resteranno in Documents.",
+            "SuperEnalotto",
+            0x40,  # MB_ICONINFORMATION
+        )
+        with open(sentinel, 'w', encoding='utf-8') as f:
+            f.write('done')
+        log("Notifica primo avvio mostrata")
+    except Exception as e:
+        log(f"notification error: {e}")
 
 
 def wait_server(max_attempts=30, delay=1):
-    """Attende che il server risponda all'API."""
+    """Attende che il server risponda all'API /api/stats."""
     api_url = URL + "/api/stats"
-    for _ in range(max_attempts):
+    log(f"wait_server: polling {api_url}")
+    for i in range(max_attempts):
         try:
             urllib.request.urlopen(api_url, timeout=1)
+            log(f"wait_server: server risponde dopo {i+1} tentativi")
             return True
         except urllib.error.HTTPError as e:
-            # 200 = OK, qualsiasi response HTTP significa che il server è up
             if e.code in (200, 404, 500):
+                log(f"wait_server: server risponde (HTTP {e.code})")
                 return True
-        except Exception:
+        except Exception as e:
+            if i % 10 == 0:
+                log(f"wait_server: attempt {i+1}/{max_attempts} - {e}")
             time.sleep(delay)
+    log(f"wait_server: TIMEOUT dopo {max_attempts} tentativi")
     return False
 
 
 if __name__ == '__main__':
+    try:
+        # Migra DB/tracking/config da accanto all'exe e mostra notifica primo avvio
+        log("Import gateway.engine...")
+        from gateway.engine import get_user_data_dir, migrate_db_if_needed
+        log("gateway.engine imported ok")
+        
+        data_dir = get_user_data_dir()
+        log(f"Data dir: {data_dir}")
+        
+        migrate_db_if_needed()
+        log("Migrazione completata")
+        
+        show_first_run_notification(data_dir)
+        log("Notifica completata")
+
+    except Exception as e:
+        log(f"ERRORE setup dati: {e}\n{traceback.format_exc()}")
+
     lock_fp = acquire_lock()
     if lock_fp is None:
-        print("SuperEnalotto già aperto. Porto in primo piano...")
+        log("Lock non acquisito, gia aperto")
         bring_existing_to_front()
         sys.exit(0)
 
-    print("Avvio SuperEnalotto...")
+    log("Lock acquisito, avvio backend...")
     backend_thread = threading.Thread(target=start_backend, daemon=True)
     backend_thread.start()
 
     try:
         if not wait_server():
-            print("ERRORE: Backend non risponde")
+            log("ERRORE: Backend non risponde")
             release_lock(lock_fp)
             sys.exit(1)
 
+        log("Server pronto, apro browser...")
         webbrowser.open(URL)
         print(f"SuperEnalotto aperto su {URL}")
 
         while True:
             time.sleep(5)
             if not backend_thread.is_alive():
-                print("Backend finito, riavvio...")
+                log("Backend thread morto, riavvio...")
                 backend_thread = threading.Thread(target=start_backend, daemon=True)
                 backend_thread.start()
                 time.sleep(5)
     except KeyboardInterrupt:
+        log("KeyboardInterrupt")
         print("\nChiusura in corso...")
+    except Exception as e:
+        log(f"ERRORE MAIN LOOP: {e}\n{traceback.format_exc()}")
     finally:
         try:
             release_lock(lock_fp)
         except Exception as e:
-            print(f"[WARN] release_lock: {e}")
-        print("SuperEnalotto chiuso.")
+            log(f"release_lock error: {e}")
+        log("SuperEnalotto chiuso.")

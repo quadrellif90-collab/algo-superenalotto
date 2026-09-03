@@ -6,11 +6,12 @@ import json
 import os
 import sys
 import threading
+import time
 import webbrowser
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus
 from urllib.parse import urlparse, parse_qs
 
-from gateway.engine import SuperenalottoEngine
+from gateway.engine import SuperenalottoEngine, get_user_data_dir, migrate_db_if_needed
 
 # Porta del server (evita conflitto con AI Gateway Manager su 8765)
 PORT = 8766
@@ -18,14 +19,19 @@ PORT = 8766
 
 def get_base_dir():
     """Restituisce la directory base (compatibile con PyInstaller).
-    Per web usa sempre _MEIPASS se frozen, per config/jackpot cerca anche accanto all'EXE (portable)."""
+    Per web usa sempre _MEIPASS se frozen."""
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def get_config_path():
-    """Portable: config.json prima accanto all'EXE, poi in MEIPASS."""
+    """Portable: config.json prima in Documents/SuperEnalotto, poi accanto all'EXE, poi in MEIPASS."""
     if getattr(sys, 'frozen', False):
+        data_dir = get_user_data_dir()
+        docs_cfg = os.path.join(data_dir, "config.json")
+        if os.path.exists(docs_cfg):
+            return docs_cfg
         exe_cfg = os.path.join(os.path.dirname(sys.executable), "config.json")
         if os.path.exists(exe_cfg):
             return exe_cfg
@@ -35,7 +41,7 @@ def get_config_path():
                 return mei_cfg
         except Exception:
             pass
-        return exe_cfg
+        return docs_cfg
     return os.path.join(get_base_dir(), "config.json")
 
 
@@ -67,21 +73,13 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 "data": self.engine.prossima_estrazione(),
                 "oggi": self.engine.oggi_estrazione(),
             })
-        elif path == "/api/genera":
-            try:
-                n = int(parse_qs(parsed.query).get("n", [1])[0])
-                n = max(1, min(5, n))
-                schedine = self.engine.genera_schedine(n)
-                self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
-            except (ValueError, IndexError) as e:
-                self._json_response({"error": str(e)})
         elif path == "/api/jackpot":
             try:
                 jp_val = self.engine.fetch_jackpot_sisal()
-                jackpot_val = f"€{jp_val:,.0f}".replace(",", ".")
+                jackpot_val = f"EUR {jp_val:,.0f}".replace(",", ".")
             except Exception as e:
                 print(f"[WARN] fetch_jackpot_sisal: {e}")
-                jackpot_val = "€210.000.000"
+                jackpot_val = "EUR 210.000.000"
             self._json_response({"jackpot": jackpot_val})
         elif path == "/api/premi":
             self._json_response(self.engine.get_premi())
@@ -93,7 +91,16 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response({"error": str(e)})
         elif path == "/api/grafici":
             self._json_response(self.engine.get_grafici())
+        elif path == "/api/genera":
+            try:
+                n = int(parse_qs(parsed.query).get("n", [1])[0])
+                n = max(1, min(5, n))
+                schedine = self.engine.genera_schedine(n)
+                self._json_response([{"nums": s, "sum": sum(s)} for s in schedine])
+            except (ValueError, IndexError) as e:
+                self._json_response({"error": str(e)})
         else:
+            # Static files: usa parent class (gestisce charset automaticamente per text/*)
             super().do_GET()
 
     def do_POST(self):
@@ -179,6 +186,22 @@ def open_browser():
 def start_server(open_browser_flag=True):
     engine = SuperenalottoEngine()
     SuperenalottoHandler.engine = engine
+
+    # Automatismi all'avvio: aggiorna nuove estrazioni + verifica schedine non verificate
+    def _auto_tasks():
+        import traceback
+        try:
+            time.sleep(5)  # lascia al server tempo di avviarsi e servire richieste
+            added, scraped = engine.scrape_historical(pages=1)
+            print(f"[AUTO] scrape_historical: added={added}, scraped={scraped}", flush=True)
+            if added > 0:
+                engine._load_records()
+            result = engine.verifica_tutte(only_unchecked=True)
+            print(f"[AUTO] auto_check_new_draws: checked={result['checked']} skipped={result['skipped']}", flush=True)
+        except Exception as e:
+            print(f"[WARN] auto_tasks: {e}\n{traceback.format_exc()}", flush=True)
+
+    threading.Thread(target=_auto_tasks, daemon=True).start()
 
     server = HTTPServer(("127.0.0.1", PORT), SuperenalottoHandler)
     print(f"SuperEnalotto Server running on http://localhost:{PORT}")

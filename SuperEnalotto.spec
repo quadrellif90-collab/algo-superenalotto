@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec per SuperEnalotto Desktop App v8.1 (finestra nativa webview, portable)"""
+"""PyInstaller spec per SuperEnalotto v8.2 (browser-based, portable, Documents/SuperEnalotto)"""
 
 from pathlib import Path
 
 PROJECT_ROOT = Path('.').resolve()
 
 datas = []
-for f in ['superenalotto.csv', 'config.json', 'daily_limit.csv', 'superenalotto.db', 'icon.ico']:
+for f in ['superenalotto.csv', 'config.json', 'icon.ico']:
     p = PROJECT_ROOT / f
     if p.exists():
         datas.append((str(p), '.'))
@@ -16,7 +16,7 @@ if web_dir.exists():
     datas.append((str(web_dir), 'web'))
 
 a = Analysis(
-    [str(PROJECT_ROOT / 'desktop_app.py')],
+    [str(PROJECT_ROOT / 'launcher.py')],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -24,8 +24,21 @@ a = Analysis(
         'gateway',
         'gateway.engine',
         'gateway.server',
-        'webview',
-        'clr',
+        'ctypes',
+        'msvcrt',
+        'ssl',
+        'urllib.request',
+        'urllib.error',
+        'urllib.parse',
+        'webbrowser',
+        'threading',
+        'json',
+        'sqlite3',
+        'csv',
+        'datetime',
+        'collections',
+        'random',
+        'shutil',
     ],
     hookspath=[],
     hooksconfig={},

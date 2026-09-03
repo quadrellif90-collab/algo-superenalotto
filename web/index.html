@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -10,14 +10,14 @@
     <div class="app">
         <header class="header">
             <div class="header-left">
-                <h1>ðŸ€ SuperEnalotto</h1>
+                <h1>★ SuperEnalotto</h1>
                 <span class="version">v8.2</span>
-                <span style="margin-left:12px;font-size:11px;opacity:0.9;">QuartileSpread â€¢ 4235 estrazioni</span>
+                <span style="margin-left:12px;font-size:11px;opacity:0.9;">QuartileSpread • 4235 estrazioni</span>
             </div>
             <div class="header-right">
                 <div class="jackpot">
                     <span class="jackpot-label">JACKPOT</span>
-                    <span class="jackpot-value" id="jackpot">â‚¬210.000.000</span>
+                    <span class="jackpot-value" id="jackpot">€210.000.000</span>
                 </div>
                 <div class="next-draw" id="nextDraw">
                     <span class="next-label">Prossima estrazione</span>
@@ -28,11 +28,11 @@
 
         <div style="display:flex; flex:1;">
         <nav class="sidebar">
-            <button class="tab active" data-tab="gioca">ðŸŽ² Gioca</button>
-            <button class="tab" data-tab="stats">ðŸ“Š Statistiche</button>
-            <button class="tab" data-tab="premi">ðŸ† Premi</button>
-            <button class="tab" data-tab="storico">ðŸŽ± Storico</button>
-            <button class="tab" data-tab="analisi">ðŸ“ˆ Analisi</button>
+            <button class="tab active" data-tab="gioca">🎲 Gioca</button>
+            <button class="tab" data-tab="stats">📊 Statistiche</button>
+            <button class="tab" data-tab="premi">🏆 Premi</button>
+            <button class="tab" data-tab="storico">🎱 Storico</button>
+            <button class="tab" data-tab="analisi">📈 Analisi</button>
             <div style="margin-top:auto; padding:12px; font-size:11px; color:var(--text-muted); border-top:1px solid var(--border);">
                 <div>Backup: <span id="backupInfo">giornaliero</span></div>
                 <div>Avvio: minimizzato</div>
@@ -42,8 +42,8 @@
             <!-- TAB: GIOCA (3 colonne come prima) -->
             <div class="tab-content active" id="tab-gioca" style="display:grid; grid-template-columns:320px 1fr 320px; gap:20px; width:100%;">
                 <section class="panel generator">
-                    <h2>ðŸ“Š Generatore Schedine</h2>
-                    <p class="subtitle">Strategia QuartileSpread â€” 1 per quartile, somma Q1-Q3, max 2/decade, max 1 >80</p>
+                    <h2>📊 Generatore Schedine</h2>
+                    <p class="subtitle">Strategia QuartileSpread — 1 per quartile, somma Q1-Q3, max 2/decade, max 1 >80</p>
                     <div class="form-row">
                         <label for="numSchedine">Numero schedine (max 5):</label>
                         <select id="numSchedine">
@@ -54,17 +54,17 @@
                             <option value="5">5</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary btn-generate" id="btnGenera">ðŸ€ GENERA SCHEDINE</button>
+                    <button class="btn btn-primary btn-generate" id="btnGenera">★ GENERA SCHEDINE</button>
                     <div class="generated" id="generated"></div>
-                    <button class="btn btn-success btn-save" id="btnSalva" style="display:none;">ðŸ’¾ SALVA SCHEDINE</button>
+                    <button class="btn btn-success btn-save" id="btnSalva" style="display:none;">💾 SALVA SCHEDINE</button>
                     <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Le altre strategie (HotCold, AntiRecent...) restano per backtest.</p>
                 </section>
 
                 <section class="panel my-plays">
-                    <h2>ðŸ“‹ Le Mie Giocate</h2>
+                    <h2>📋 Le Mie Giocate</h2>
                     <div class="stats-row">
-                        <div class="stat"><span class="stat-label">Speso</span><span class="stat-value" id="statSpeso">â‚¬0</span></div>
-                        <div class="stat"><span class="stat-label">Vinto</span><span class="stat-value" id="statVinto">â‚¬0</span></div>
+                        <div class="stat"><span class="stat-label">Speso</span><span class="stat-value" id="statSpeso">€0</span></div>
+                        <div class="stat"><span class="stat-label">Vinto</span><span class="stat-value" id="statVinto">€0</span></div>
                         <div class="stat"><span class="stat-label">ROI</span><span class="stat-value" id="statRoi">0%</span></div>
                         <div class="stat"><span class="stat-label">M2</span><span class="stat-value" id="statM2">0</span></div>
                         <div class="stat"><span class="stat-label">M3</span><span class="stat-value" id="statM3">0</span></div>
@@ -77,13 +77,13 @@
                         </table>
                     </div>
                     <div class="actions">
-                        <button class="btn btn-primary" id="btnVerifica">âœ… VERIFICA TUTTE</button>
-                        <button class="btn btn-warning" id="btnAutoVerifica">ðŸ”„ AUTO</button>
+                        <button class="btn btn-primary" id="btnVerifica">✅ VERIFICA TUTTE</button>
+                        <button class="btn btn-warning" id="btnAutoVerifica">🔄 AUTO</button>
                     </div>
                 </section>
 
                 <section class="panel draws">
-                    <h2>ðŸŽ± Estrazioni Recenti</h2>
+                    <h2>🎱 Estrazioni Recenti</h2>
                     <div class="table-container">
                         <table class="data-table" id="estrazioniTable">
                             <thead><tr><th>Data</th><th>Numeri</th><th>Jolly</th><th>SuperStar</th></tr></thead>
@@ -96,7 +96,7 @@
             <!-- TAB: STATISTICHE -->
             <div class="tab-content" id="tab-stats" style="display:none; width:100%;">
                 <section class="panel">
-                    <h2>ðŸ“Š Statistiche Complete (4235 estrazioni)</h2>
+                    <h2>📊 Statistiche Complete (4235 estrazioni)</h2>
                     <div id="statsGrid" style="display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:16px;"></div>
                     <div style="margin-top:16px;">
                         <h3 style="font-size:13px; color:var(--accent);">Top 10 numeri frequenti</h3>
@@ -108,10 +108,10 @@
             <!-- TAB: PREMI -->
             <div class="tab-content" id="tab-premi" style="display:none; width:100%;">
                 <section class="panel">
-                    <h2>ðŸ† Premi e ProbabilitÃ  (ADM reali)</h2>
-                    <p class="subtitle">Premi medi da DB (p2-p6) con fallback ADM. 2 numeri=â‚¬5, 3=â‚¬25, 4=â‚¬296, 5=â‚¬25.847, 5+Jolly=â‚¬100k, 6=Jackpot</p>
+                    <h2>🏆 Premi e Probabilità (ADM reali)</h2>
+                    <p class="subtitle">Premi medi da DB (p2-p6) con fallback ADM. 2 numeri=€5, 3=€25, 4=€296, 5=€25.847, 5+Jolly=€100k, 6=Jackpot</p>
                     <table class="data-table" id="premiTable">
-                        <thead><tr><th>Match</th><th>ProbabilitÃ </th><th>Premio medio</th><th>Ultima estrazione</th></tr></thead>
+                        <thead><tr><th>Match</th><th>Probabilità</th><th>Premio medio</th><th>Ultima estrazione</th></tr></thead>
                         <tbody id="premiBody"></tbody>
                     </table>
                     <div style="margin-top:12px; font-size:12px; color:var(--text-muted);" id="jackpotInfo"></div>
@@ -121,9 +121,9 @@
             <!-- TAB: STORICO -->
             <div class="tab-content" id="tab-storico" style="display:none; width:100%;">
                 <section class="panel">
-                    <h2>ðŸŽ± Storico Estrazioni</h2>
+                    <h2>🎱 Storico Estrazioni</h2>
                     <div style="display:flex; gap:8px; margin-bottom:12px;">
-                        <button class="btn btn-primary" id="btnAggiornaStorico" style="flex:0;">ðŸ”„ Aggiorna Storico (50 pagine)</button>
+                        <button class="btn btn-primary" id="btnAggiornaStorico" style="flex:0;">🔄 Aggiorna Storico (50 pagine)</button>
                         <span id="storicoStatus" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
                     </div>
                     <div class="table-container" style="max-height:500px;">
@@ -138,10 +138,10 @@
             <!-- TAB: ANALISI -->
             <div class="tab-content" id="tab-analisi" style="display:none; width:100%;">
                 <section class="panel">
-                    <h2>ðŸ“ˆ Analisi Strategie</h2>
+                    <h2>📈 Analisi Strategie</h2>
                     <div style="display:flex; gap:8px; margin-bottom:12px;">
-                        <button class="btn btn-primary" id="btnValuta">ðŸ… Valuta Algoritmi (50 estrazioni)</button>
-                        <button class="btn btn-warning" id="btnGrafici">ðŸ“Š Mostra Grafici</button>
+                        <button class="btn btn-primary" id="btnValuta">🏅 Valuta Algoritmi (50 estrazioni)</button>
+                        <button class="btn btn-warning" id="btnGrafici">📊 Mostra Grafici</button>
                     </div>
                     <div id="valutaResult" style="font-size:13px; white-space:pre-wrap; background:var(--bg); padding:12px; border-radius:8px; border:1px solid var(--border);"></div>
                     <div id="graficiContainer" style="margin-top:16px;"></div>
@@ -151,7 +151,7 @@
         </div>
 
         <footer class="footer">
-            <span>SuperEnalotto v8.2 â€” Strategia QuartileSpread â€¢ Verde 7.18</span>
+            <span>SuperEnalotto v8.2 — Strategia QuartileSpread • Verde 7.18</span>
             <span id="statusBar">Pronto</span>
         </footer>
     </div>
@@ -165,7 +165,7 @@
     </div>
     <div class="modal" id="modalDrawDay">
         <div class="modal-content" style="text-align:center;">
-            <h2>ðŸ€ Oggi Ã¨ giorno di estrazione!</h2>
+            <h2>★ Oggi è giorno di estrazione!</h2>
             <p id="drawDayText" style="margin:12px 0;">Gioca entro le 19:30</p>
             <button class="btn btn-primary" onclick="document.getElementById('modalDrawDay').classList.remove('active')">Chiudi</button>
         </div>

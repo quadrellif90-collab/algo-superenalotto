@@ -6,6 +6,7 @@ import csv
 import json
 import os
 import random
+import shutil
 import sqlite3
 import sys
 import urllib.request
@@ -17,6 +18,27 @@ CSV_PATH = "superenalotto.csv"
 DB_PATH = "superenalotto.db"
 TRACKING_PATH = "tracking.csv"
 CONFIG_PATH = "config.json"
+
+
+def get_user_data_dir():
+    """Restituisce la cartella dati utente: Documents/Superenalotto/.
+    La crea se non esiste."""
+    data_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto')
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
+def migrate_db_if_needed():
+    """Se il DB/tracking/config esistono accanto all'exe ma non in Documents, li migra."""
+    if not getattr(sys, 'frozen', False):
+        return
+    exe_dir = os.path.dirname(sys.executable)
+    data_dir = get_user_data_dir()
+    for fname in (DB_PATH, TRACKING_PATH, CONFIG_PATH):
+        src = os.path.join(exe_dir, fname)
+        dst = os.path.join(data_dir, fname)
+        if os.path.exists(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
 
 # Premi medi ufficiali ADM (fallback)
 PREMI_DEFAULT = {2: 5.0, 3: 25.0, 4: 296.0, 5: 25847.0, 5.5: 100000.0, 6: 1000000.0}
@@ -36,39 +58,41 @@ def is_prime(n):
 
 class SuperenalottoEngine:
     def __init__(self, db_path=None):
+        import threading as _t
         self.db_path = db_path or DB_PATH
         self.conn = None
         self.records = []
         self.stats = {}
+        self._lock = _t.Lock()
         self._init_db()
 
     def _get_data_path(self, filename):
-        """Portable: DB/TRACKING sempre accanto all'EXE (scrivibile), CSV/config da MEIPASS se non presenti."""
+        """Portable: DB/TRACKING/CONFIG in Documents/SuperEnalotto (scrivibile), CSV da MEIPASS."""
         if getattr(sys, 'frozen', False):
-            exe_dir = os.path.dirname(sys.executable)
-            p_exe = os.path.join(exe_dir, filename)
-            # DB e tracking devono stare accanto all'EXE per persistenza portable
-            if filename in (DB_PATH, TRACKING_PATH, "tracking.csv"):
-                return p_exe
-            # per file di sola lettura (csv, config, web) usa exe se presente altrimenti MEIPASS
-            if os.path.exists(p_exe):
-                return p_exe
+            data_dir = get_user_data_dir()
+            p_docs = os.path.join(data_dir, filename)
+            # DB, tracking e config devono stare in Documents per persistenza
+            if filename in (DB_PATH, TRACKING_PATH, CONFIG_PATH):
+                return p_docs
+            # per file di sola lettura (csv, config, web) usa MEIPASS per import iniziale
             try:
                 p_mei = os.path.join(sys._MEIPASS, filename)
                 if os.path.exists(p_mei):
                     return p_mei
             except Exception:
                 pass
-            return p_exe
+            return p_docs
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             return os.path.join(base_dir, filename)
 
     def _init_db(self):
+        # Migra DB da accanto all'exe se presente
+        migrate_db_if_needed()
         self.db_path = self._get_data_path(DB_PATH)
         self.csv_path = self._get_data_path(CSV_PATH)
         self.tracking_path = self._get_data_path(TRACKING_PATH)
-        # Se DB non esiste ma CSV è in MEIPASS, copialo accanto all'EXE per prima importazione
+        # Se DB non esiste ma CSV è in MEIPASS, usalo per prima importazione
         if getattr(sys, 'frozen', False) and not os.path.exists(self.db_path):
             # assicura che csv_path punti a MEIPASS esistente per import
             if not os.path.exists(self.csv_path):
@@ -79,7 +103,7 @@ class SuperenalottoEngine:
                 except Exception:
                     pass
         
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         c = self.conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS estrazioni (
@@ -106,16 +130,7 @@ class SuperenalottoEngine:
         if c.fetchone()[0] == 0 and os.path.exists(self.csv_path):
             self._import_csv()
         c.execute("SELECT COUNT(*) FROM giocate")
-        # portable: cerca tracking sia accanto all'EXE che in MEIPASS se DB vuoto
         tracking_exists = os.path.exists(self.tracking_path)
-        if not tracking_exists and getattr(sys, 'frozen', False):
-            try:
-                alt_track = os.path.join(sys._MEIPASS, TRACKING_PATH)
-                if os.path.exists(alt_track):
-                    self.tracking_path = alt_track
-                    tracking_exists = True
-            except Exception as e:
-                print(f"[WARN] _init_db tracking: {e}")
         if c.fetchone()[0] == 0 and tracking_exists:
             self._import_tracking()
         self._load_records()
@@ -275,6 +290,20 @@ class SuperenalottoEngine:
         """Genera n schedine con QuartileSpread."""
         return [self.quartile_spread() for _ in range(n)]
 
+    def auto_check_new_draws(self):
+        """All'avvio: verifica automaticamente le schedine per giorni con estrazione."""
+        try:
+            self.verifica_tutte(only_unchecked=True)
+        except Exception:
+            pass
+
+    def auto_update_draws(self):
+        """All'avvio: cerca nuove estrazioni dal sito e le aggiunge."""
+        try:
+            self.scrape_historical(pages=1)
+        except Exception:
+            pass
+
     def verifica_giocata(self, data, numeri):
         """Verifica una giocata contro l'estrazione della data. Ritorna (matches, jolly_hit, premio)."""
         c = self.conn.cursor()
@@ -408,14 +437,14 @@ class SuperenalottoEngine:
         if row and any(row[1:]):
             _, p2,p3,p4,p5,p5j,p6 = row
             premi = [
-                {"match":"2","odds":odds[2],"premio":p2 or PREMI_DEFAULT[2],"ultimo":f"€{p2}" if p2 else "fallback"},
-                {"match":"3","odds":odds[3],"premio":p3 or PREMI_DEFAULT[3],"ultimo":f"€{p3}" if p3 else "fallback"},
-                {"match":"4","odds":odds[4],"premio":p4 or PREMI_DEFAULT[4],"ultimo":f"€{p4}" if p4 else "fallback"},
-                {"match":"5","odds":odds[5],"premio":p5 or PREMI_DEFAULT[5],"ultimo":f"€{p5}" if p5 else "fallback"},
-                {"match":"5+Jolly","odds":odds[5.5],"premio":p5j or PREMI_DEFAULT[5.5],"ultimo":f"€{p5j}" if p5j else "fallback"},
-                {"match":"6","odds":odds[6],"premio":p6 or PREMI_DEFAULT[6],"ultimo":f"€{p6}" if p6 else "jackpot"},
+                {"match":"2","odds":odds[2],"premio":p2 or PREMI_DEFAULT[2],"ultimo":f"EUR {p2}" if p2 else "fallback"},
+                {"match":"3","odds":odds[3],"premio":p3 or PREMI_DEFAULT[3],"ultimo":f"EUR {p3}" if p3 else "fallback"},
+                {"match":"4","odds":odds[4],"premio":p4 or PREMI_DEFAULT[4],"ultimo":f"EUR {p4}" if p4 else "fallback"},
+                {"match":"5","odds":odds[5],"premio":p5 or PREMI_DEFAULT[5],"ultimo":f"EUR {p5}" if p5 else "fallback"},
+                {"match":"5+Jolly","odds":odds[5.5],"premio":p5j or PREMI_DEFAULT[5.5],"ultimo":f"EUR {p5j}" if p5j else "fallback"},
+                {"match":"6","odds":odds[6],"premio":p6 or PREMI_DEFAULT[6],"ultimo":f"EUR {p6}" if p6 else "jackpot"},
             ]
-            jackpot = f"€{p6:,.0f}".replace(",",".") if p6 else "€210.000.000"
+            jackpot = f"EUR {p6:,.0f}".replace(",",".") if p6 else "EUR 210.000.000"
         else:
             premi = [
                 {"match":"2","odds":22,"premio":PREMI_DEFAULT[2],"ultimo":"ADM"},
@@ -425,7 +454,7 @@ class SuperenalottoEngine:
                 {"match":"5+Jolly","odds":103769105,"premio":PREMI_DEFAULT[5.5],"ultimo":"ADM"},
                 {"match":"6","odds":622614630,"premio":PREMI_DEFAULT[6],"ultimo":"jackpot"},
             ]
-            jackpot = "€210.000.000"
+            jackpot = "EUR 210.000.000"
         return {"premi": premi, "jackpot": jackpot, "data": row[0] if row else None}
 
     def valuta_strategie(self, n=50):
@@ -447,32 +476,185 @@ class SuperenalottoEngine:
             elif matches>=4: won+=PREMI_DEFAULT[4]; m4+=1
         random.seed()
         roi = (won/spent*100) if spent else 0
-        text = f"Valutazione ultime {n} estrazioni (QuartileSpread):\nSpeso €{spent} — Vinto €{won} — ROI {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}\n\nNota: backtest completo 7226 estrazioni disponibile via script PowerShell."
+        text = f"Valutazione ultime {n} estrazioni (QuartileSpread):\nSpeso EUR {spent} - Vinto EUR {won} - ROI {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}\n\nNota: backtest completo 7226 estrazioni disponibile via script PowerShell."
         return {"text": text, "roi": roi, "spent": spent, "won": won}
 
     def get_grafici(self):
         return {"msg": "Grafici matplotlib disponibili solo in versione desktop tkinter 7.18. In web v8.1 usa Statistiche + Premi."}
 
-    def aggiorna_storico(self):
-        """Prova ad aggiornare storico da API (se config presente), altrimenti nessun errore."""
+    def scrape_historical(self, pages=1):
+        """Scrape storico estrazioni da superenalotto.com/archivio e aggiunge
+        le mancanti al DB (anti-duplicato per data).
+        Includes Jolly (boxArchiveNumberRed) and SuperStar (boxArchiveNumberstar).
+        Ritorna (aggiunte, totale_scrape)."""
+        import re
+        import ssl
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         added = 0
+        scraped = 0
+        existing = {r["data"] for r in self.records}
+        c = self.conn.cursor()
+        for pg in range(1, pages + 1):
+            url = "https://www.superenalotto.com/archivio" + (f"/{pg}" if pg > 1 else "")
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                html = urllib.request.urlopen(req, timeout=20, context=ctx).read().decode("utf-8", "ignore")
+            except Exception:
+                break
+            dates = re.findall(r'boxarchiveDate">([^<]+)<', html)
+            nums_norm = re.findall(r'boxArchiveNumber">(\d+)<', html)
+            nums_red = re.findall(r'boxArchiveNumberRed">(\d+)<', html)
+            nums_star = re.findall(r'boxArchiveNumberstar">(\d+)<', html)
+            estrazioni = []
+            i = 0
+            j = 0
+            for k in range(len(dates)):
+                if i + 6 > len(nums_norm):
+                    break
+                n6 = [int(x) for x in nums_norm[i:i + 6]]
+                jolly = int(nums_red[j]) if j < len(nums_red) else 0
+                star = int(nums_star[k]) if k < len(nums_star) else 0
+                estrazioni.append((n6, jolly, star))
+                i += 6
+                j += 1
+            for (n6, jolly, star), dstr in zip(estrazioni, dates):
+                try:
+                    dd, mm, yyyy = dstr.split()
+                    mesi = {"gennaio":1,"febbraio":2,"marzo":3,"aprile":4,"maggio":5,"giugno":6,
+                            "luglio":7,"agosto":8,"settembre":9,"ottobre":10,"novembre":11,"dicembre":12}
+                    iso = f"{yyyy}-{mesi.get(mm, 1):02d}-{int(dd):02d}"
+                except Exception:
+                    continue
+                scraped += 1
+                if iso in existing:
+                    # Update star/jolly se mancanti (vecchio scraper non li scaricava)
+                    c.execute("SELECT jolly,star FROM estrazioni WHERE data=?", (iso,))
+                    old = c.fetchone()
+                    if old and (old[0] == 0 or old[1] == 0):
+                        c.execute("UPDATE estrazioni SET jolly=?,star=? WHERE data=?",
+                                  (jolly if jolly else old[0], star if star else old[1], iso))
+                    continue
+                try:
+                    c.execute(
+                        "INSERT OR IGNORE INTO estrazioni (data,n1,n2,n3,n4,n5,n6,jolly,star) VALUES (?,?,?,?,?,?,?,?,?)",
+                        (iso, n6[0], n6[1], n6[2], n6[3], n6[4], n6[5], jolly, star),
+                    )
+                    if c.rowcount > 0:
+                        existing.add(iso)
+                        added += 1
+                except sqlite3.IntegrityError:
+                    continue
+        self.conn.commit()
+        if added > 0:
+            self._load_records()
+        return added, scraped
+
+    def _scrape_jackpot(self):
+        """Estrae il jackpot live da superenalotto.com (JackpotValueNumber)."""
+        import re
+        import ssl
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         try:
-            cfg_path = self._get_data_path(CONFIG_PATH)
+            req = urllib.request.Request(
+                "https://www.superenalotto.com",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            html = urllib.request.urlopen(req, timeout=12, context=ctx).read().decode("utf-8", "ignore")
+            m = re.search(r'JackpotValueNumber">([\d.]+)', html)
+            if m:
+                return float(m.group(1).replace(".", ""))
+        except Exception:
+            pass
+        return None
+
+    def fetch_jackpot_sisal(self):
+        """Jackpot: prova prima scraping live da superenalotto.com, fallback default."""
+        live = self._scrape_jackpot()
+        if live and live > 0:
+            return live
+        return 210000000.0
+
+    def aggiorna_storico(self):
+        """Aggiorna storico: prima prova API, poi scrape pagine archivio.
+        Ritorna dict con added, scraped, msg."""
+        # prova prima l'API se disponibile
+        try:
+            self.fetch_latest_draw()
+        except Exception:
+            pass
+        # poi scrapa l'archivio
+        added, scraped = self.scrape_historical(pages=3)
+        msg = f"Scansione: {scraped} estrazioni. Nuove: {added}. Totale: {len(self.records)}"
+        return {"added": added, "scraped": scraped, "msg": msg}
+
+    def fetch_latest_draw(self):
+        """Scarica ultima estrazione da lotteryresultsfeed.com (se API key presente).
+        Altrimenti usa scrape_historical per trovare nuove estrazioni."""
+        cfg = {}
+        cfg_path = self._get_data_path(CONFIG_PATH)
+        try:
             if os.path.exists(cfg_path):
                 with open(cfg_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-                apiKey = cfg.get("apiKey")
-                apiUrl = cfg.get("apiUrl")
-                if apiKey and apiUrl and "lotteryresultsfeed" in apiUrl:
-                    # fetch semplice via urllib, non critico se fallisce
-                    req = urllib.request.Request(apiUrl, headers={"Authorization": f"Bearer {apiKey}"})
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
-                        # parsing minimale, conta estrazioni nuove
-                        pass
         except Exception:
             pass
-        return {"added": added, "msg": "Storico aggiornato via CSV. Per scrape completo usa versione 7.18."}
+        api_key = cfg.get("apiKey", "")
+        if api_key and api_key != "[REDACTED]" and cfg.get("apiUrl"):
+            try:
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(
+                    cfg["apiUrl"],
+                    headers={
+                        "User-Agent": "Mozilla/5.0",
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {api_key}",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                    data = json.loads(r.read().decode("utf-8", "ignore"))
+                se = next((l for l in data.get("lotteries", []) if l.get("id") == 712), None)
+                if se:
+                    self._apply_draw_data(se.get("results_latest", {}), se.get("jackpot"))
+                    return
+            except Exception:
+                pass
+        # fallback: scrapa dall'archivio
+        self.scrape_historical(pages=1)
+
+    def _apply_draw_data(self, data, jackpot=None):
+        """Aggiorna DB con dati da API (results_latest)."""
+        numeri = [int(x) for x in data.get("balls", data.get("numeri", []))]
+        if len(numeri) != 6:
+            return
+        bonus = data.get("ball_bonus", [])
+        jolly = int(bonus[0]) if bonus else 0
+        star = int(data.get("star", 0) or 0)
+        data_str = str(data.get("draw_date", datetime.now().strftime("%Y-%m-%d")))
+        try:
+            data_str = datetime.strptime(data_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+        except Exception:
+            try:
+                data_str = datetime.strptime(data_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        c = self.conn.cursor()
+        c.execute("SELECT COUNT(*) FROM estrazioni WHERE data=?", (data_str,))
+        if c.fetchone()[0] == 0:
+            c.execute(
+                "INSERT INTO estrazioni (data,n1,n2,n3,n4,n5,n6,jolly,star) VALUES (?,?,?,?,?,?,?,?,?)",
+                (data_str, numeri[0], numeri[1], numeri[2], numeri[3], numeri[4], numeri[5], jolly, star),
+            )
+            self.conn.commit()
+            self._load_records()
 
     def close(self):
         if self.conn:
