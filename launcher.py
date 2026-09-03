@@ -58,6 +58,16 @@ if not getattr(sys, 'frozen', False):
 log("Imports: stdlib ok")
 
 def acquire_lock():
+    import time as _time
+    # Se lock esiste ma è >15 minuti fa (processo crashato), rimuovi
+    if os.path.exists(LOCK_PATH):
+        age = _time.time() - os.path.getmtime(LOCK_PATH)
+        if age > 900:  # 15 minuti
+            log("Lock stale (>15min), rimuovo")
+            try:
+                os.remove(LOCK_PATH)
+            except OSError:
+                pass
     try:
         import msvcrt
         fp = open(LOCK_PATH, 'w')
