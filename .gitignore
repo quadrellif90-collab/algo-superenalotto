@@ -2,7 +2,25 @@
 *.pyc
 __pycache__/
 *.log
+# JSON results (generati, non versionati)
+advanced_backtest_results.json
+common_denominator_analysis.json
+analisi_completa_v3.json
+backtest_full_4226.json
 backtest_full_log.txt
+
+# Python scripts temporanei
+scrape_check.py
+update_db.py
+add_missing_db.py
+verify_tracking.py
+verify_and_sync.py
+check_db.py
+show_results.py
+generate_analysis.py
+test_new_strategies.py
+common_denominator_analysis.py
+advanced_backtest.py
 
 # Sensitive files
 config.json

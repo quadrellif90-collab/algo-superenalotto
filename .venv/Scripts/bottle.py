@@ -1,4 +1,4 @@
-#!C:\Users\Siviglino\Desktop\Superenalotto\.venv\Scripts\python.exe
+#!C:\Users\Siviglino\Desktop\Pro superenalotto\.venv\Scripts\python.exe
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 """

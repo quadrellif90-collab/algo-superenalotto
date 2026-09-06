@@ -28,6 +28,12 @@ function bindEvents() {
     if (btnVal) btnVal.addEventListener('click', valuta);
     const btnGraf = document.getElementById('btnGrafici');
     if (btnGraf) btnGraf.addEventListener('click', mostraGrafici);
+    const btnStrat = document.getElementById('btnGenStrategia');
+    if (btnStrat) btnStrat.addEventListener('click', generaStrategia);
+    const btnSalvaStrat = document.getElementById('btnSalvaStrategia');
+    if (btnSalvaStrat) btnSalvaStrat.addEventListener('click', salvaStrategia);
+    const btnGenMulti = document.getElementById('btnGenMulti');
+    if (btnGenMulti) btnGenMulti.addEventListener('click', generaMultiStrategia);
     const btnImp = document.getElementById('btnImportaGiocata');
     if (btnImp) btnImp.addEventListener('click', importaGiocata);
     const btnClr = document.getElementById('btnClearGiocate');
@@ -238,6 +244,29 @@ async function loadBackups() {
     } catch {}
 }
 
+async function loadRanking() {
+    try {
+        const data = await apiGet('/api/ranking');
+        const tbody = document.querySelector('#rankingTable tbody');
+        if (data && Array.isArray(data)) {
+            tbody.innerHTML = data.map(item => {
+                const row = `<tr>`;
+                row.innerHTML = `
+                    <td>${item.name || 'N/A'}</td>
+                    <td>${item.numbers || 'N/A'}</td>
+                    <td>${item.jolly || '-'}</td>
+                    <td>${item.star || '-'}</td>
+                    <td>${item.sum || 'N/A'}</td>
+                    <td>${item.rank || 'N/A'}</td>
+                `;
+                return row;
+            }).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load ranking', err);
+    }
+}
+
 async function backupNow() {
     const btn = document.getElementById('btnBackup');
     if (!btn) return;
@@ -265,5 +294,57 @@ async function restoreBackup() {
         await loadBackups();
     } catch {
         showNotification('Errore ripristino');
+    }
+}
+
+// === STRATEGIE ===
+let generatedStrategia = [];
+async function generaStrategia() {
+    const strat = document.getElementById('strategiaSelect').value;
+    const container = document.getElementById('strategiaGenerated');
+    const status = document.getElementById('strategiaStatus');
+    status.textContent='Generazione...';
+    try {
+        const r = await apiGet(`/api/genera?n=1&strategy=${strat}`);
+        if (r.length > 0) {
+            generatedStrategia = r;
+            const s = r[0];
+            container.innerHTML = `<div class="schedina"><span class="schedina-num">Strategia ${strat}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`;
+            status.textContent=`Generata (${strat}), somma ${s.sum}`;
+            document.getElementById('btnSalvaStrategia').style.display='block';
+        }
+    } catch {
+        status.textContent='Errore generazione';
+    }
+}
+async function salvaStrategia() {
+    if (generatedStrategia.length===0) return;
+    const s = generatedStrategia[0];
+    try {
+        const r = await apiPost('/api/salva', { schedine: [{nums: s.nums}] });
+        if (r.blocked) { showNotification(r.msg||'Bloccato'); } else { showNotification(`Salvata! ${r.saved} schedina`); document.getElementById('btnSalvaStrategia').style.display='none'; }
+        await loadGiocate();
+    } catch {
+        showNotification('Errore salvataggio');
+    }
+}
+
+async function generaMultiStrategia() {
+    const strat = document.getElementById('strategiaSelect').value;
+    const container = document.getElementById('strategiaGenerated');
+    const status = document.getElementById('strategiaStatus');
+    status.textContent = 'Generazione 5 schedine...';
+    try {
+        const r = await apiGet(`/api/genera?n=5&strategy=${strat}`);
+        if (r.length > 0) {
+            generatedStrategia = r;
+            container.innerHTML = r.map((s, i) =>
+                `<div class="schedina"><span class="schedina-num">Schedina ${i+1}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`
+            ).join('');
+            status.textContent = `Generate ${r.length} schedine (${strat}). Salva una alla volta.`;
+            document.getElementById('btnSalvaStrategia').style.display = 'block';
+        }
+    } catch {
+        status.textContent = 'Errore generazione';
     }
 }
