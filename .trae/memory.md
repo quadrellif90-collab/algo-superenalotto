@@ -26,4 +26,4 @@
 - Alto: os._exit(0) non ordinato, logging duplicato, resolve_auto_strategy() costoso, checkShowClear() duplicato, funzione morta show_first_run_notification()
 - Note: funzione show_first_run_notification() (L128-155) NON viene chiamata — logica notifica è inline a L194-238
 - Azioni prioritarie: fix import rotti, EnumWindows, cleanup ordinato, centralizzare logging, cache Auto strategy, rimuovere checkShowClear() duplicato
-- **Status: IN ATTESA DEL PROSSIMO TASK DI SVILUPPO**
+- **Status: FIX IMPLEMENTATI E MERGED SU MASTER (2026-09-07)**
