@@ -1,4 +1,6 @@
-$headers = @{ 'X-API-KEY' = '170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d' }
+$apiKey = if ($env:SUPERENALOTTO_API_KEY) { $env:SUPERENALOTTO_API_KEY } else { (Get-Content config.json -Raw | ConvertFrom-Json).apiKey }
+if (-not $apiKey) { Write-Host "ERRORE: imposta SUPERENALOTTO_API_KEY o config.json"; exit 1 }
+$headers = @{ 'X-API-KEY' = $apiKey }
 $uri = 'https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=712'
 try {
     $r = Invoke-RestMethod -Uri $uri -Headers $headers -TimeoutSec 15 -ErrorAction Stop

@@ -1,12 +1,12 @@
 # SuperEnalotto - Protocollo Sniper
 
-**Strumento avanzato di analisi statistica e generazione numeri per SuperEnalotto**, basato su 4226 estrazioni storiche (1997-2026). Include strategie ottimizzate (Hot-Cold, Position-Based, Anti-Recent) e backtest completo.
+**Strumento avanzato di analisi statistica e generazione numeri per SuperEnalotto**, basato su 4238 estrazioni storiche (1997-2026). Include strategie ottimizzate (Hot-Cold, Position-Based, Anti-Recent) e backtest completo.
 
 ## 🗂️ Struttura Files
 
 ```
 Superenalotto/
-├── superenalotto.csv          # Archivio 4236 estrazioni storiche (1997-2026)
+├── superenalotto.csv          # Archivio 4238 estrazioni storiche (1997-2026)
 ├── superenalotto.db           # SQLite DB (estrazioni + giocate)
 ├── gateway/                   # Backend Python
 │   ├── engine.py              # Core logic: strategie, verifica, scraping, backup
@@ -64,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File "backtest_full_4226.ps1"
 powershell -ExecutionPolicy Bypass -File "hot_cold_strategy.ps1"
 ```
 
-## 📊 Statistiche Chiave (4236 estrazioni)
+## 📊 Statistiche Chiave (4238 estrazioni)
 
 | Metrica | Valore |
 |---------|--------|
@@ -100,7 +100,7 @@ powershell -ExecutionPolicy Bypass -File "hot_cold_strategy.ps1"
 11. **MixQuartileHotCold** - QuartileSpread + HotCold
 12. **MixAllThree** - Quartile + HotCold + AntiRecent mescolati
 
-## ⚡ Risultati Backtest (4236 estrazioni, 2 biglietti/draw)
+## ⚡ Risultati Backtest (4238 estrazioni, 2 biglietti/draw)
 
 ```
 SumLocked:             M3+/1000=8.50  Net=-€3,786  ROI: -89.38%
@@ -145,7 +145,7 @@ py -3.14 common_denominator_analysis.py # Analisi pattern ricorrenti
 ## 🖥️ REQUISITI
 - Python 3.x (tkinter incluso in stdlib)
 - Windows PowerShell 5.1+
-- 4226 estrazioni storiche in `superenalotto.csv`
+- 4238 estrazioni storiche in `superenalotto.csv`
 
 ## ⚡ AVVIO RAPIDO
 

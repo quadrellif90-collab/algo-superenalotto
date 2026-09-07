@@ -1,8 +1,9 @@
-﻿"""
+"""
 SuperEnalotto Engine - Logica di gioco, strategie, verifica.
 """
 
 import csv
+import hashlib
 import json
 import os
 import secrets
@@ -11,17 +12,10 @@ import sqlite3
 import sys
 
 import logging
-
-logging.basicConfig(
-    level=logging.WARNING,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto', 'app.log'), encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
 logger = logging.getLogger(__name__)
 
+import random
+import time
 import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta
@@ -76,10 +70,10 @@ PRIMES = frozenset({2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,7
 # Sequenza di Fibonacci (fino a 90)
 FIBONACCI = [1,2,3,5,8,13,21,34,55,89]
 
-# Coefficienti del comune denominatore (pattern ricorrenti analizzati su 4236 estrazioni)
+# Coefficienti del comune denominatore (pattern ricorrenti analizzati su 4238 estrazioni)
 # Somma target ottimale: 274-278 (interquartile centrale)
-# Pattern low/mid/high piÃ¹ comune: 2-2-2 (531 estrazioni)
-# Pattern paritÃ  piÃ¹ comune: 3 even / 3 odd (1344 estrazioni)
+# Pattern low/mid/high più comune: 2-2-2 (531 estrazioni)
+# Pattern parità  più comune: 3 even / 3 odd (1344 estrazioni)
 # Media somma: 276.55
 
 
@@ -92,6 +86,13 @@ def is_prime(n):
     return True
 
 
+STRATEGY_NAMES = [
+    'quartile', 'hotcold', 'antirecent', 'mix', 'sumlocked',
+    'primefocus', 'middlefreq', 'gapspread', 'complement',
+    'mixhotcoldprime', 'mixquartilehotcold', 'optimized',
+    'fibonacci', 'adaptive', 'ensemble', 'mlpattern'
+]
+
 class SuperenalottoEngine:
     def __init__(self, db_path=None):
         import threading as _t
@@ -100,6 +101,10 @@ class SuperenalottoEngine:
         self.records = []
         self.stats = {}
         self._lock = _t.Lock()
+        self._rng = secrets.SystemRandom()
+        self._ranking_cache = None
+        self._ranking_cache_fp = ""
+        self._ranking_cache_ts = 0
         self._init_db()
 
     def _get_data_path(self, filename):
@@ -128,7 +133,7 @@ class SuperenalottoEngine:
         self.db_path = self._get_data_path(DB_PATH)
         self.csv_path = self._get_data_path(CSV_PATH)
         self.tracking_path = self._get_data_path(TRACKING_PATH)
-        # Se DB non esiste ma CSV Ã¨ in MEIPASS, usalo per prima importazione
+        # Se DB non esiste ma CSV è in MEIPASS, usalo per prima importazione
         if getattr(sys, 'frozen', False) and not os.path.exists(self.db_path):
             # assicura che csv_path punti a MEIPASS esistente per import
             if not os.path.exists(self.csv_path):
@@ -140,6 +145,10 @@ class SuperenalottoEngine:
                     pass
         
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        try:
+            self.conn.execute("PRAGMA journal_mode=WAL")
+        except Exception:
+            pass
         c = self.conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS estrazioni (
@@ -208,49 +217,69 @@ class SuperenalottoEngine:
         self.conn.commit()
 
     def _import_tracking(self):
-        """Importa giocate da tracking.csv, preservando i dati esistenti."""
-        c = self.conn.cursor()
+        """Importa giocate da tracking.csv (formato save_tracking: data,'','', numeri, somma,'','',flag)."""
         if not os.path.exists(self.tracking_path):
-            return
-        
-        # Carica i dati esistenti per evitare perdite
-        existing = self._load_records()
-        
-        # Carica i nuovi dati da tracking.csv
-        if os.path.exists(self.tracking_path):
+            return 0
+        # _load_records non ritorna nulla — usa DB per dedup
+        c = self.conn.cursor()
+        c.execute("SELECT data, numeri FROM giocate")
+        existing_keys = {(r[0], r[1]) for r in c.fetchall()}
+        added = 0
+        try:
             with open(self.tracking_path, "r", encoding="utf-8-sig") as f:
-                content = f.read()
-            
-            from io import StringIO
-            reader = csv.reader(StringIO(content))
-            header = next(reader, None)
-            
-            for row in reader:
-                if not row:
-                    continue
-                data = (row[0] or '').strip().strip('"') if row[0] else ''
-                nums = ''
-                if len(row) > 4:
-                    nums = (row[4] or '').strip().strip('"')
-                
-                # Verifica che abbia almeno 6 numeri
-                if len(row) >= 6 and nums:
-                    # Controlla se già esiste (per evitare duplicati)
-                    existing_ids = set()
-                    for record in existing:
-                        if record['id'] in nums:
-                            existing_ids.add(int(record['id']))
-                    
-                    if int(nums) not in existing_ids:
-                        self._insert_record({
-                            'data': row[0],
-                            'nums': nums,
-                            'somma': sum(int(x) for x in nums),
-                            'verificato': 0,
-                            'vincita': 0
-                        })
-        
+                reader = csv.reader(f)
+                first = next(reader, None)
+                # Legacy: i vecchi tracking.csv non avevano header.
+                # Se la prima riga NON è una testata (data/numeri), è un dato: processala.
+                rows = list(reader)
+                if first is not None:
+                    col0 = (first[0] or "").strip().lower()
+                    col3 = (first[3] or "").strip().lower() if len(first) > 3 else ""
+                    col4 = (first[4] or "").strip().lower() if len(first) > 4 else ""
+                    is_header = col0 == "data" or col3 == "numeri" or col4 == "numeri"
+                    if not is_header:
+                        rows.insert(0, first)
+                for row in rows:
+                    if not row or not row[0].strip():
+                        continue
+                    data_str = (row[0] or "").strip().strip('"')
+                    # save_tracking scrive: [data,'','',numeri,somma,'','',flag] -> numeri in col 3
+                    numeri = ""
+                    if len(row) > 3 and row[3].strip():
+                        numeri = row[3].strip().strip('"')
+                    elif len(row) > 4 and row[4].strip() and "-" in row[4]:
+                        numeri = row[4].strip().strip('"')
+                    if not numeri or "-" not in numeri:
+                        continue
+                    try:
+                        somma = int(row[4]) if len(row) > 4 and row[4].strip().isdigit() else sum(int(x) for x in numeri.split("-"))
+                    except Exception:
+                        somma = 0
+                    key = (data_str, numeri)
+                    if key in existing_keys:
+                        continue
+                    try:
+                        c.execute("INSERT OR IGNORE INTO giocate (data, numeri, somma, verificato) VALUES (?,?,?,0)", (data_str, numeri, somma))
+                        if c.rowcount > 0:
+                            added += 1
+                            existing_keys.add(key)
+                    except Exception as e:
+                        logger.warning(f"_import_tracking skip {data_str} {numeri}: {e}")
+            if added:
+                self.conn.commit()
+        except Exception as e:
+            logger.warning(f"_import_tracking failed: {e}")
         return added
+
+    def _invalidate_ranking_cache(self):
+        self._ranking_cache = None
+        self._ranking_cache_fp = ""
+        self._ranking_cache_ts = 0
+
+    def _records_fingerprint(self):
+        if not self.records:
+            return "0:"
+        return f"{len(self.records)}:{self.records[-1]['data']}:{self.records[-1]['nums']}"
 
     def _load_records(self):
         c = self.conn.cursor()
@@ -264,6 +293,7 @@ class SuperenalottoEngine:
                 "star": row[8] or 0,
             })
         self._calc_stats()
+        self._invalidate_ranking_cache()
 
     def _calc_stats(self):
         if not self.records:
@@ -303,31 +333,51 @@ class SuperenalottoEngine:
             return False
         return True
 
+    def _stats_for(self, records):
+        """Stats calcolate su un subset di records (per backtest senza leakage). Include num_counts."""
+        if not records:
+            return {}
+        sums = [sum(r["nums"]) for r in records]
+        n = len(sums)
+        sums_sorted = sorted(sums)
+        mean_val = sum(sums) / n
+        all_nums = [num for r in records for num in r["nums"]]
+        num_counts = Counter(all_nums)
+        return {
+            "count": n, "mean": mean_val,
+            "median": sums_sorted[n // 2],
+            "std": (sum((s - mean_val) ** 2 for s in sums) / n) ** 0.5 if n > 1 else 0,
+            "q1": sums_sorted[n // 4],
+            "q3": sums_sorted[3 * n // 4],
+            "min": min(sums), "max": max(sums),
+            "num_counts": dict(num_counts.most_common()),
+        }
+
     def quartile_spread(self):
         """Genera 6 numeri con strategia QuartileSpread v7.17 fedele: 1 per quartile + 2 extra random, con vincoli."""
         if not self.stats:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         q_ranges = [(1, 22), (23, 45), (46, 67), (68, 90)]
         for _ in range(2000):
             alloc = [1, 1, 1, 1]
             extra = 2
             while extra > 0:
-                alloc[secrets.SystemRandom().randrange(4)] += 1
+                alloc[self._rng.randrange(4)] += 1
                 extra -= 1
             nums = []
             for qi in range(4):
                 lo, hi = q_ranges[qi]
-                nums.extend(secrets.SystemRandom().sample(range(lo, hi + 1), alloc[qi]))
+                nums.extend(self._rng.sample(range(lo, hi + 1), alloc[qi]))
             nums = sorted(nums)
             if not self._valid_constraints(nums):
                 continue
             return nums
         # fallback: versione semplice come v7.17
         for _ in range(1000):
-            c = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            c = sorted(self._rng.sample(range(1, 91), 6))
             if self._valid_constraints(c):
                 return c
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def genera_schedine(self, n=1, strategy='quartile'):
         """Genera n schedine con strategia specificata."""
@@ -356,7 +406,7 @@ class SuperenalottoEngine:
     def hot_cold_spread(self, n_hot=3, n_cold=3):
         """HotCold: 3-4 numeri caldi (ultime 10), 2-3 freddi (mai o raramente usciti)."""
         if not self.records:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         # Conta apparizioni in ultime 10 estrazioni
         recent = self.records[-10:]
         hot_nums = []
@@ -368,24 +418,24 @@ class SuperenalottoEngine:
         # Caldi
         n_hot = min(n_hot, len(hot))
         n_cold = min(n_cold, len(cold))
-        selected = secrets.SystemRandom().sample(hot, n_hot) + secrets.SystemRandom().sample(cold, n_cold)
+        selected = self._rng.sample(hot, n_hot) + self._rng.sample(cold, n_cold)
         selected = sorted(selected)
         # Riempi fin a 6
         remaining = 6 - len(selected)
         if remaining > 0:
-            extra = secrets.SystemRandom().sample([x for x in range(1, 91) if x not in selected], remaining)
+            extra = self._rng.sample([x for x in range(1, 91) if x not in selected], remaining)
             selected = sorted(selected + extra)
         return selected
 
     def anti_recent_spread(self, exclude_last=5):
         """AntiRecent: evita numeri ultime 5 estrazioni, preferisce meno recenti."""
         if not self.records:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         recent_nums = set()
         for r in self.records[-exclude_last:]:
             recent_nums.update(r['nums'])
         available = set(range(1, 91)) - recent_nums
-        selected = sorted(secrets.SystemRandom().sample(list(available), 6))
+        selected = sorted(self._rng.sample(list(available), 6))
         return selected
 
     def mixed_strategy(self):
@@ -395,13 +445,13 @@ class SuperenalottoEngine:
         ar = self.anti_recent_spread(exclude_last=5)
         # 2 da HotCold, 2 da AntiRecent, 2 da Quartile (unici)
         selected = set()
-        selected.update(secrets.SystemRandom().sample(hc, 2))
-        selected.update(secrets.SystemRandom().sample(ar, 2))
-        selected.update(secrets.SystemRandom().sample(qc, 2))
+        selected.update(self._rng.sample(hc, 2))
+        selected.update(self._rng.sample(ar, 2))
+        selected.update(self._rng.sample(qc, 2))
         # Riempi se duplicati
         while len(selected) < 6:
             pool = qc + hc + ar + list(range(1, 91))
-            extra = secrets.SystemRandom().choice(pool)
+            extra = self._rng.choice(pool)
             if extra not in selected:
                 selected.add(extra)
         return sorted(list(selected)[:6])
@@ -409,69 +459,69 @@ class SuperenalottoEngine:
     def sum_locked_spread(self, target_sum=None):
         """SumLocked: somma bloccata intorno alla media (274-278), con vincoli."""
         if target_sum is None:
-            target_sum = secrets.SystemRandom().choice([274, 275, 276, 277, 278])
+            target_sum = self._rng.choice([274, 275, 276, 277, 278])
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            nums = sorted(self._rng.sample(range(1, 91), 6))
             if sum(nums) == target_sum and max(Counter(n // 10 for n in nums).values()) <= 2 and sum(1 for n in nums if n > 80) <= 1:
                 return nums
         # fallback constraint-based
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            nums = sorted(self._rng.sample(range(1, 91), 6))
             s = sum(nums)
             if abs(s - target_sum) <= 5 and max(Counter(n // 10 for n in nums).values()) <= 2 and sum(1 for n in nums if n > 80) <= 1:
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def prime_focus_spread(self, min_primes=3):
         """PrimeFocus: almeno min_primes numeri primi, con vincoli."""
         prime_list = sorted(PRIMES)
         composite_list = [n for n in range(1, 91) if n not in PRIMES]
         for _ in range(3000):
-            n_primes = secrets.SystemRandom().randint(min_primes, min(5, len(prime_list)))
-            selected = secrets.SystemRandom().sample(prime_list, n_primes)
+            n_primes = self._rng.randint(min_primes, min(5, len(prime_list)))
+            selected = self._rng.sample(prime_list, n_primes)
             remaining = 6 - len(selected)
             if remaining > 0:
-                selected.extend(secrets.SystemRandom().sample(composite_list, remaining))
+                selected.extend(self._rng.sample(composite_list, remaining))
             selected = sorted(selected)
             if self._valid_constraints(selected):
                 return selected
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def middle_frequency_spread(self):
         """MiddleFrequency: numeri di frequenza media (evita hot e cold estremi)."""
         if not self.records:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         freq = self.stats.get("num_counts", {})
         if not freq:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         avg = sum(freq.values()) / 90 if freq else 30
         mid_nums = [n for n in range(1, 91) if avg * 0.85 <= freq.get(n, 0) <= avg * 1.15]
         if len(mid_nums) < 6:
             mid_nums = [n for n in range(1, 91) if freq.get(n, 0) >= avg * 0.9]
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(mid_nums, min(6, len(mid_nums))))
+            nums = sorted(self._rng.sample(mid_nums, min(6, len(mid_nums))))
             if len(nums) == 6 and self._valid_constraints(nums):
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def gap_spread_strategy(self, min_gap=5):
         """GapSpread: minimizza la distanza minima tra numeri adiacenti."""
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            nums = sorted(self._rng.sample(range(1, 91), 6))
             gaps = [nums[i+1] - nums[i] for i in range(5)]
             if min(gaps) >= min_gap and self._valid_constraints(nums):
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def complement_mirror_spread(self):
         """ComplementMirror: 3 numeri + 3 complementari (91-n), con vincoli."""
         for _ in range(3000):
-            half = sorted(secrets.SystemRandom().sample(range(1, 46), 3))
+            half = sorted(self._rng.sample(range(1, 46), 3))
             comp = sorted(91 - n for n in half)
             nums = sorted(half + comp)
             if self._valid_constraints(nums):
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def mix_hotcold_prime(self):
         """Mix ottimizzato: HotCold + PrimeFocus (Miglior M3+ rate)."""
@@ -479,46 +529,46 @@ class SuperenalottoEngine:
         prime_list = sorted(PRIMES)
         for _ in range(3000):
             nums = list(hc[:4])
-            extra = secrets.SystemRandom().choice(prime_list)
+            extra = self._rng.choice(prime_list)
             if extra not in nums:
                 nums.append(extra)
             while len(nums) < 6:
-                n = secrets.SystemRandom().randint(1, 90)
+                n = self._rng.randint(1, 90)
                 if n not in nums:
                     nums.append(n)
             nums = sorted(nums)
             if self._valid_constraints(nums):
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def mix_quartile_hotcold(self):
         """Mix: 4 QuartileSpread + 2 HotCold, tutti unici."""
         for _ in range(3000):
             qc = self.quartile_spread()
             hc = self.hot_cold_spread(n_hot=2, n_cold=1)
-            selected = set(secrets.SystemRandom().sample(qc, 4))
-            selected.update(secrets.SystemRandom().sample(hc, 2))
+            selected = set(self._rng.sample(qc, 4))
+            selected.update(self._rng.sample(hc, 2))
             while len(selected) < 6:
-                n = secrets.SystemRandom().randint(1, 90)
+                n = self._rng.randint(1, 90)
                 if n not in selected:
                     selected.add(n)
             nums = sorted(list(selected)[:6])
             if self._valid_constraints(nums):
                 return nums
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def optimized_spread(self):
         """Strategia ottimizzata overall: combinazione di tutti i pattern ricorrenti.
 
-        Basata sull'analisi comune denominatore su 4236 estrazioni:
+        Basata sull'analisi comune denominatore su 4238 estrazioni:
         - Somma 274-278 (media 276.55)
-        - Pattern low/mid/high: 2-2-2 (piÃ¹ comune)
-        - 1-2 numeri primi (piÃ¹ comune)
-        - 3 even / 3 odd (piÃ¹ comune)
+        - Pattern low/mid/high: 2-2-2 (più comune)
+        - 1-2 numeri primi (più comune)
+        - 3 even / 3 odd (più comune)
         - Max 2 per decade, max 1 >80
         """
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            nums = sorted(self._rng.sample(range(1, 91), 6))
             s = sum(nums)
             if not (274 <= s <= 278):
                 continue
@@ -556,19 +606,19 @@ class SuperenalottoEngine:
         
         for _ in range(3000):
             # 2-4 numeri Fibonacci
-            n_fib = secrets.SystemRandom().randint(2, 4)
-            selected = secrets.SystemRandom().sample(fib_nums, n_fib)
+            n_fib = self._rng.randint(2, 4)
+            selected = self._rng.sample(fib_nums, n_fib)
             
             # Completare con numeri non Fibonacci
             remaining = 6 - len(selected)
             if remaining > 0:
-                selected.extend(secrets.SystemRandom().sample(non_fib, remaining))
+                selected.extend(self._rng.sample(non_fib, remaining))
             
             nums = sorted(selected)
             if self._valid_constraints(nums):
                 return nums
         
-        return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+        return sorted(self._rng.sample(range(1, 91), 6))
 
     def adaptive_predictive_spread(self):
         """Strategia adattiva predittiva: combina pattern statistici e trend recenti.
@@ -577,7 +627,7 @@ class SuperenalottoEngine:
         Combina riconoscimento pattern + adattamento dinamico.
         """
         if not self.records:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         
         # Analizza trend recenti (ultime 20 estrazioni)
         recent = self.records[-20:] if len(self.records) >= 20 else self.records
@@ -595,7 +645,7 @@ class SuperenalottoEngine:
         target_sum = sum(recent_sums) / len(recent_sums) if recent_sums else 276.55
         
         for _ in range(3000):
-            nums = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            nums = sorted(self._rng.sample(range(1, 91), 6))
             s = sum(nums)
             
             # Vincolo somma target (±15 dalla media recente)
@@ -643,8 +693,8 @@ class SuperenalottoEngine:
         ]
         
         # Seleziona 2-3 strategie casualmente
-        n_strategies = secrets.SystemRandom().randint(2, 3)
-        selected = secrets.SystemRandom().sample(base_strategies, n_strategies)
+        n_strategies = self._rng.randint(2, 3)
+        selected = self._rng.sample(base_strategies, n_strategies)
         
         # Esegui le strategie selezionate
         predictions = []
@@ -656,21 +706,21 @@ class SuperenalottoEngine:
                 continue
         
         if not predictions:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         
         # Combina le previsioni: prendi 2 numeri da ciascuna
         combined = []
         for pred in predictions:
-            combined.extend(secrets.SystemRandom().sample(pred, 2))
+            combined.extend(self._rng.sample(pred, 2))
         
         # Rimuovi duplicati e completa a 6 numeri
         unique = list(set(combined))
         while len(unique) < 6:
-            n = secrets.SystemRandom().randint(1, 90)
+            n = self._rng.randint(1, 90)
             if n not in unique:
                 unique.append(n)
         
-        nums = sorted(secrets.SystemRandom().sample(unique, 6))
+        nums = sorted(self._rng.sample(unique, 6))
         
         # Valida con vincoli
         if self._valid_constraints(nums):
@@ -685,7 +735,7 @@ class SuperenalottoEngine:
         approccio di riconoscimento di pattern per generare numeri.
         """
         if not self.records:
-            return sorted(secrets.SystemRandom().sample(range(1, 91), 6))
+            return sorted(self._rng.sample(range(1, 91), 6))
         
         # Analizza pattern storici
         all_nums = [n for r in self.records for n in r['nums']]
@@ -702,12 +752,12 @@ class SuperenalottoEngine:
         
         for _ in range(3000):
             # 2 numeri caldi + 2 freddi + 2 casuali
-            hot_sel = secrets.SystemRandom().sample(hot_nums, min(2, len(hot_nums)))
-            cold_sel = secrets.SystemRandom().sample(cold_nums, min(2, len(cold_nums)))
+            hot_sel = self._rng.sample(hot_nums, min(2, len(hot_nums)))
+            cold_sel = self._rng.sample(cold_nums, min(2, len(cold_nums)))
             remaining = 6 - len(hot_sel) - len(cold_sel)
             
             pool = [n for n in range(1, 91) if n not in hot_sel and n not in cold_sel]
-            random_sel = secrets.SystemRandom().sample(pool, remaining)
+            random_sel = self._rng.sample(pool, remaining)
             
             nums = sorted(hot_sel + cold_sel + random_sel)
             
@@ -769,7 +819,7 @@ class SuperenalottoEngine:
         return {"matches": matches, "jolly_hit": jolly_hit, "premio": premio}
 
     def salva_giocata(self, data, numeri, somma):
-        """Salva una giocata. Blocca se per la stessa data esiste giÃ  una giocata non verificata.
+        """Salva una giocata. Blocca se per la stessa data esiste già  una giocata non verificata.
         Gestisce UNIQUE constraint con INSERT OR IGNORE."""
         c = self.conn.cursor()
         c.execute("SELECT COUNT(*) FROM giocate WHERE data=? AND verificato=0", (data,))
@@ -783,7 +833,7 @@ class SuperenalottoEngine:
             self.conn.commit()
             # rowcount == 0 significa duplicato (UNIQUE data+numeri)
             if c.rowcount == 0:
-                # duplicato esatto giÃ  presente: consideralo successo (idempotente)
+                # duplicato esatto già presente: consideralo successo (idempotente)
                 return True
             return True
         except sqlite3.IntegrityError:
@@ -910,7 +960,7 @@ class SuperenalottoEngine:
             elif matches>=4: won+=PREMI_DEFAULT[4]; m4+=1
         
         roi = (won/spent*100) if spent else 0
-        text = f"Valutazione ultime {n} estrazioni (QuartileSpread):\nSpeso EUR {spent} - Vinto EUR {won} - ROI {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}\n\nNota: backtest completo 7226 estrazioni disponibile via script PowerShell."
+        text = f"Valutazione ultime {n} estrazioni (QuartileSpread):\nSpeso EUR {spent} - Vinto EUR {won} - ROI {roi:.1f}%\nM2:{m2} M3:{m3} M4:{m4}\n\nNota: backtest completo 4238 estrazioni disponibile via script PowerShell."
         return {"text": text, "roi": roi, "spent": spent, "won": won}
 
     def get_grafici(self):
@@ -1101,6 +1151,8 @@ class SuperenalottoEngine:
         
         with open(tracking_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
+            # Header (ignorato da _import_tracking): evita che la prima giocata venga scartata
+            writer.writerow(["data", "", "", "numeri", "somma", "", "", "verificato"])
             for data, numeri, somma, verificato in rows:
                 # Format: data, giornata, budget, schede, numeri, somma, jackpot, verificato, verified_flag
                 writer.writerow([data, "", "", numeri, somma, "", "", str(verificato == 1)])
@@ -1202,49 +1254,50 @@ class SuperenalottoEngine:
         total_return = 0.0
         wins = []
         
-        for i in range(len(self.records) - n, len(self.records)):
-            actual = self.records[i]
-            data = actual['data']
-            actual_nums = list(actual['nums'])
-            jolly = actual['jolly']
-            
-            # Genera schedina BEFORE this draw (use data before i)
-            # Temporarily set records to exclude future data
-            saved_records = self.records[:i]
-            old_records = self.records
-            self.records = saved_records
-            
-            try:
-                schedina = self.genera_schedine(1, strategy=strategy)[0]
-            except Exception:
-                schedina = sorted(secrets.SystemRandom().sample(range(1, 91), 6))
-            finally:
-                self.records = old_records
-            
-            matches = len(set(schedina) & set(actual_nums))
-            jolly_hit = jolly in schedina if jolly else False
-            
-            total_spent += 1
-            premio = 0.0
-            
-            if matches == 6:
-                premio = PREMI_DEFAULT[6]
-            elif matches == 5:
-                if jolly_hit:
-                    premio = PREMI_DEFAULT[5.5]
-                else:
-                    premio = PREMI_DEFAULT[5]
-            elif matches == 4:
-                premio = PREMI_DEFAULT[4]
-            elif matches == 3:
-                premio = PREMI_DEFAULT[3]
-            elif matches == 2:
-                premio = PREMI_DEFAULT[2]
-            
-            if premio > 0:
-                wins.append({"data": data, "matches": matches, "jolly_hit": jolly_hit, "premio": premio})
-                total_return += premio
-                total_win += 1
+        with self._lock:
+            for i in range(len(self.records) - n, len(self.records)):
+                actual = self.records[i]
+                data = actual['data']
+                actual_nums = list(actual['nums'])
+                jolly = actual['jolly']
+
+                # Genera schedina BEFORE this draw (use data before i)
+                # Temporarily set records to exclude future data
+                saved_records = self.records[:i]
+                old_records = self.records
+                self.records = saved_records
+
+                try:
+                    schedina = self.genera_schedine(1, strategy=strategy)[0]
+                except Exception:
+                    schedina = sorted(self._rng.sample(range(1, 91), 6))
+                finally:
+                    self.records = old_records
+
+                matches = len(set(schedina) & set(actual_nums))
+                jolly_hit = jolly in schedina if jolly else False
+
+                total_spent += 1
+                premio = 0.0
+
+                if matches == 6:
+                    premio = PREMI_DEFAULT[6]
+                elif matches == 5:
+                    if jolly_hit:
+                        premio = PREMI_DEFAULT[5.5]
+                    else:
+                        premio = PREMI_DEFAULT[5]
+                elif matches == 4:
+                    premio = PREMI_DEFAULT[4]
+                elif matches == 3:
+                    premio = PREMI_DEFAULT[3]
+                elif matches == 2:
+                    premio = PREMI_DEFAULT[2]
+
+                if premio > 0:
+                    wins.append({"data": data, "matches": matches, "jolly_hit": jolly_hit, "premio": premio})
+                    total_return += premio
+                    total_win += 1
         
         roi = ((total_return / total_spent - 1) * 100) if total_spent > 0 else 0
         
@@ -1292,97 +1345,101 @@ class SuperenalottoEngine:
         }
 
     # ═══════════════════════════════════════════════════
-    # SISTEMA DI CLASSIFICA DINAMICA
+    # SISTEMA DI CLASSIFICA DINAMICA — deterministico, senza leakage, con cache
     # ═══════════════════════════════════════════════════
 
-    def get_dynamic_ranking(self):
-        """Restituisce la classifica dinamica delle strategie basata sulle performance recenti.
-        
-        La classifica viene calcolata in base a:
-        - Tasso di vittoria (M3+/1000)
-        - ROI (ritorno sull'investimento)
-        - Costo delle schedine
-        - Consistenza delle performance
-        """
+    def get_dynamic_ranking(self, n=50, seed=42, use_cache=True):
+        """Classifica deterministica: per ogni strategia esegue backtest sulle ultime n
+        estrazioni usando RNG seedato (random.Random) e troncando i records a i esclusivo
+        (nessun leakage). Cache di 5 min se i records non cambiano e n/seed uguali."""
         if not self.records:
             return []
-        
-        # Estrae le ultime 50 estrazioni per il calcolo
-        recent_records = self.records[-50:] if len(self.records) >= 50 else self.records
-        
+        n = max(10, min(200, int(n)))
+        fp = self._records_fingerprint()
+        if use_cache and self._ranking_cache is not None and getattr(self, '_ranking_cache_fp', '') == fp and time.time() - self._ranking_cache_ts < 300:
+            if getattr(self, '_ranking_cache_n', None) == n and getattr(self, '_ranking_cache_seed', None) == seed:
+                return self._ranking_cache
+        start = max(0, len(self.records) - n)
+        window = self.records[start:]
         rankings = []
-        
-        # Lista delle strategie disponibili
-        strategy_names = [
-            'quartile', 'hotcold', 'antirecent', 'mix', 'sumlocked',
-            'primefocus', 'middlefreq', 'gapspread', 'complement',
-            'mixhotcoldprime', 'mixquartilehotcold', 'optimized',
-            'fibonacci', 'adaptive', 'ensemble', 'mlpattern'
-        ]
-        
-        for name in strategy_names:
-            # Simula la valutazione della strategia sulle ultime estrazioni
-            score = self._evaluate_strategy_score(name, recent_records)
-            rankings.append({
-                'strategy': name,
-                'score': score,
-                'rank': 0  # Sarà calcolato dopo l'ordinamento
-            })
-        
-        # Ordina per score decrescente
-        rankings.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Assegna i rank
+        for name in STRATEGY_NAMES:
+            score, detail = self._evaluate_strategy_score(name, window, start_idx=start, seed=seed)
+            rankings.append({"strategy": name, "score": score, **detail, "rank": 0})
+        rankings.sort(key=lambda x: (-x["score"], x["strategy"]))
         for i, item in enumerate(rankings):
-            item['rank'] = i + 1
-        
+            item["rank"] = i + 1
+        self._ranking_cache = rankings
+        self._ranking_cache_fp = fp
+        self._ranking_cache_ts = time.time()
+        self._ranking_cache_n = n
+        self._ranking_cache_seed = seed
         return rankings
 
-    def _evaluate_strategy_score(self, strategy_name, records):
-        """Valuta una strategia sulle ultime estrazioni."""
-        if not records:
-            return 0
-        
-        total_matches = 0
-        total_spent = len(records)
-        
-        for record in records:
+    def _evaluate_strategy_score(self, strategy_name, window, start_idx=0, seed=42):
+        """Score deterministico su window: genera con RNG seedato, tronca records a i."""
+        if not window:
+            return 0, {"m2":0,"m3":0,"m4":0,"m5":0,"m6":0,"total":0}
+        # evita race su ThreadingHTTPServer: blocca durante valutazione
+        with self._lock:
+            saved_records = self.records
+            saved_stats = self.stats
+            saved_rng = self._rng
+            # RNG deterministico stabile (hashlib, non hash() randomizzato)
+            h = int(hashlib.md5(f"{seed}:{strategy_name}".encode()).hexdigest()[:8], 16)
+            det_rng = random.Random(h)
+            self._rng = det_rng
+            m2=m3=m4=m5=m6=0
+            total_matches = 0
             try:
-                # Genera una schedina con la strategia
-                schedina = self.genera_schedine(1, strategy=strategy_name)[0]
-                matches = len(set(schedina) & set(record['nums']))
-                total_matches += matches
-            except Exception:
-                total_matches += 1  # Penalty per errori
-        
-        # Calcola il punteggio: più match è meglio, meno costi è meglio
-        match_rate = total_matches / (total_spent * 6) if total_spent > 0 else 0
-        cost_efficiency = 1.0 / (1.0 + total_spent / 100.0)  # Penalizza i costi alti
-        
-        # Punteggio combinato
-        score = (match_rate * 0.6) + (cost_efficiency * 0.4)
-        
-        return score
+                for offset, record in enumerate(window):
+                    i = start_idx + offset
+                    hist = saved_records[:i]
+                    if hist:
+                        self.records = hist
+                        self.stats = self._stats_for(hist)
+                    else:
+                        self.records = []
+                        self.stats = {}
+                    try:
+                        schedina = self.genera_schedine(1, strategy=strategy_name)[0]
+                    except Exception:
+                        continue
+                    matches = len(set(schedina) & set(record["nums"]))
+                    total_matches += matches
+                    if matches == 2: m2+=1
+                    elif matches == 3: m3+=1
+                    elif matches == 4: m4+=1
+                    elif matches == 5: m5+=1
+                    elif matches == 6: m6+=1
+            finally:
+                self.records = saved_records
+                self.stats = saved_stats
+                self._rng = saved_rng
+        total = len(window)
+        # score pesato: premia M3+ e soprattutto M4+, penalizza solo M2 troppo basso
+        score = (m3*1.0 + m4*4.0 + m5*20 + m6*100) / max(1, total)
+        # tie-breaker stabile su match totali
+        score += total_matches / (total * 600)
+        return score, {"m2":m2,"m3":m3,"m4":m4,"m5":m5,"m6":m6,"total":total, "total_matches": total_matches}
 
-    def get_top_strategy(self):
-        """Restituisce la strategia con il punteggio più alto."""
-        rankings = self.get_dynamic_ranking()
+    def get_top_strategy(self, n=50, seed=42):
+        rankings = self.get_dynamic_ranking(n=n, seed=seed)
         if rankings:
-            return rankings[0]['strategy']
+            return rankings[0]["strategy"]
         return 'quartile'
 
-    def get_strategy_comparison(self):
-        """Confronta tutte le strategie e restituisce una classifica dettagliata."""
-        rankings = self.get_dynamic_ranking()
-        
-        comparison = {
-            'rankings': rankings,
-            'best_strategy': rankings[0]['strategy'] if rankings else 'quartile',
-            'total_strategies': len(rankings),
-            'last_updated': datetime.now().isoformat()
+    def get_strategy_comparison(self, n=50, seed=42):
+        rankings = self.get_dynamic_ranking(n=n, seed=seed)
+        return {
+            "rankings": rankings,
+            "best_strategy": rankings[0]["strategy"] if rankings else 'quartile',
+            "total_strategies": len(rankings),
+            "last_updated": datetime.now().isoformat()
         }
-        
-        return comparison
+
+    def resolve_auto_strategy(self):
+        """Ritorna la best strategy per il generatore automatico."""
+        return self.get_top_strategy()
 
     # ═══════════════════════════════════════════════════
     # SISTEMA DI NOTIFICHE

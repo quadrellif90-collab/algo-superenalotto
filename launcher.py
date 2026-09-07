@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-logger.info(f"=== LAUNCHER START v8.2 ===")
+logger.info(f"=== LAUNCHER START v8.3 ===")
 logger.info(f"Executable: {sys.executable}")
 logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
 logger.info(f"MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}")
@@ -108,6 +108,8 @@ def bring_existing_to_front():
                     return False
             return True
 
+        # Invoca esplicitamente EnumWindows per trovare e portare in primo piano la finestra
+        win32gui.EnumWindows(_enum, None)
         logger.info("bring_existing_to_front ok")
     except Exception as e:
         logger.error(f"bring_existing_to_front error: {e}")
@@ -123,36 +125,6 @@ def start_backend():
         logger.error(f"Thread backend ERRORE: {e}", exc_info=True)
         logger.error(f"Backend server failed: {e}")
         raise
-
-
-def show_first_run_notification(data_dir):
-    """Mostra un MessageBox Windows al primo avvio indicando dove sono salvati i dati."""
-    sentinel = os.path.join(data_dir, '.first_run_done')
-    if os.path.exists(sentinel):
-        return
-    try:
-        # Crea subito il sentinel per evitare blocchi ripetuti
-        with open(sentinel, 'w', encoding='utf-8') as f:
-            f.write('done')
-        ctypes.windll.user32.MessageBoxW(
-            0,
-            "SuperEnalotto - Primo avvio\n\n"
-            "I dati (database, giocate, configurazione) vengono salvati in:\n"
-            f"{data_dir}\n\n"
-            "Puoi spostare SuperEnalotto.exe in qualsiasi cartella: "
-            "i dati resteranno in Documents.",
-            "SuperEnalotto",
-            0x40,  # MB_ICONINFORMATION
-        )
-        logger.info("Notifica primo avvio mostrata")
-    except Exception as e:
-        logger.error(f"notification error: {e}")
-        # Assicura comunque che il sentinel esista
-        try:
-            with open(sentinel, 'w', encoding='utf-8') as f:
-                f.write('done')
-        except Exception:
-            pass
 
 
 def wait_server(max_attempts=30, delay=1):

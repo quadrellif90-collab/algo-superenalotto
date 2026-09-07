@@ -1,27 +1,11 @@
-﻿from gateway.engine import SuperenalottoEngine, get_user_data_dir, migrate_db_if_needed
+from gateway.engine import SuperenalottoEngine, get_user_data_dir, migrate_db_if_needed
 
 import json, os, sys, threading, time, webbrowser
 import logging
-import logging.handlers
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler, HTTPStatus, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-# Setup logging
-log_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'SuperEnalotto')
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, 'app.log')
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=10*1024*1024, backupCount=5, encoding='utf-8'
-        ),
-        logging.StreamHandler()
-    ]
-)
 logger = logging.getLogger(__name__)
 
 PORT = 8766
@@ -56,13 +40,24 @@ def validate_timestamp(ts):
     except (ValueError, TypeError):
         return False
 
-
 def validate_date(date_str):
     try:
         datetime.strptime(date_str, '%Y-%m-%d')
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
+
+def validate_numbers(nums):
+    """6 numeri unici 1-90."""
+    if not isinstance(nums, list) or len(nums) != 6:
+        return False
+    try:
+        ints = [int(x) for x in nums]
+    except Exception:
+        return False
+    if len(set(ints)) != 6:
+        return False
+    return all(1 <= n <= 90 for n in ints)
 
 def sanitize_input(data, max_length=1000):
     if isinstance(data, str) and len(data) > max_length:
@@ -122,9 +117,16 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 n = int(parse_qs(parsed.query).get('n', [1])[0])
                 n = max(1, min(5, n))
                 strategy = parse_qs(parsed.query).get('strategy', ['quartile'])[0]
-                schedine = self.engine.genera_schedine(n, strategy=strategy)
+                q = parse_qs(parsed.query)
+                resolved = strategy
+                if strategy == 'auto':
+                    resolved = self.engine.resolve_auto_strategy()
+                elif strategy == 'quartile' and q.get('auto', ['0'])[0] in ('1','true'):
+                    # compat: Gioca senza esplicito -> usa auto
+                    resolved = self.engine.resolve_auto_strategy()
+                schedine = self.engine.genera_schedine(n, strategy=resolved)
                 self._json_response([{
-                    'nums': s, 'sum': sum(s), 'strategy': strategy
+                    'nums': s, 'sum': sum(s), 'strategy': resolved, 'requested': strategy
                 } for s in schedine])
             except (ValueError, IndexError) as e:
                 self._json_response({'error': str(e)})
@@ -295,12 +297,7 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response({'ok': True, **result})
             except Exception as e:
                 self._json_response({'error': str(e)})
-        elif path == '/api/backups':
-            try:
-                result = self.engine.list_backups()
-                self._json_response({'backups': result})
-            except Exception as e:
-                self._json_response({'error': str(e)})
+        # rimosso duplicato POST /api/backups (conflict con GET) — usa GET /api/backups o POST /api/backup
         elif path == '/api/restore_backup':
             try:
                 data = self._read_json()
@@ -311,8 +308,8 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 if not ts:
                     self._json_response({'ok': False, 'error': 'timestamp richiesto'})
                     return
-                if not validate_date(ts):
-                    self._json_response({'ok': False, 'error': 'Invalid timestamp format, use YYYY-MM-DD'})
+                if not validate_timestamp(ts):
+                    self._json_response({'ok': False, 'error': 'Invalid timestamp format, use YYYYMMDD_HHMMSS'})
                     return
                 result = self.engine.restore_backup(ts)
                 self._json_response({'ok': True, **result})
@@ -335,7 +332,10 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
     def _json_response(self, data):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # CORS ristretto a localhost
+        origin = self.headers.get('Origin', '')
+        if origin in ('http://localhost:8766', 'http://127.0.0.1:8766'):
+            self.send_header('Access-Control-Allow-Origin', origin)
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 

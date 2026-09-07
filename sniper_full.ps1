@@ -10,7 +10,7 @@ $backtestResultPath = Join-Path $scriptDir "backtest_result.json"
 $dailyLimitPath = Join-Path $scriptDir "daily_limit.csv"
 $analisiJsonPath = Join-Path $scriptDir "analisi_completa.json"
 
-$apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+$apiKey = if ($env:SUPERENALOTTO_API_KEY) { $env:SUPERENALOTTO_API_KEY } else { "" }
 $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=712"
 
 $drawDays = @("Tuesday", "Thursday", "Friday", "Saturday")

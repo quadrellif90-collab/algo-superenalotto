@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 import webbrowser
-from http.server import HTTPServer
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from datetime import datetime
 
@@ -81,7 +81,7 @@ class ServerThread(threading.Thread):
         _engine = SuperenalottoEngine()
         SuperenalottoHandler.engine = _engine
 
-        self._server = HTTPServer(("127.0.0.1", PORT), SuperenalottoHandler)
+        self._server = ThreadingHTTPServer(("127.0.0.1", PORT), SuperenalottoHandler)
         print(f"SuperEnalotto Server running on http://localhost:{PORT}")
         try:
             self._server.serve_forever()
@@ -277,7 +277,10 @@ class DesktopApp:
                 self.window.destroy()
             except Exception as e:
                 print(f"[WARN] quit_app window: {e}")
-        os._exit(0)
+        # Uscita ordinata: permette ai finally block di eseguire il cleanup
+        # Timer come fallback per assicurare l'uscita anche se qualcosa blocca
+        import threading
+        threading.Timer(3.0, os._exit, args=[0]).start()
 
 
 if __name__ == "__main__":

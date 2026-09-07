@@ -50,6 +50,35 @@ desktop.ini
 # Excel/CSV temporanei
 *.xlsx
 ~$*.csv
-~$*.xlsxalgo_performance.json
-dist/algo_performance.json
+~$*.xlsx
+algo_performance.json
+dist/
 superenalotto.db
+
+# Build / venv / cache (non versionare)
+.venv/
+build/
+dist/
+.playwright-mcp/
+.ruff_cache/
+__pycache__/
+.pytest_cache/
+
+# Dati utente / backup (locali)
+tracking.csv
+daily_limit.csv
+backup/
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Config locale con secrets
+config.json
+.env
+*.key
+*.pem
+
+# Log
+*.log
+launcher.log
+app.log

@@ -1,6 +1,11 @@
-// SuperEnalotto v8.1 - Frontend verde 7.18
+// SuperEnalotto v8.3 - Frontend verde 7.18
 const API = '';
 let generatedSchedine = [];
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function setTbodyHtml(tbody, rowsHtml) { tbody.innerHTML = rowsHtml; }
 
 document.addEventListener('DOMContentLoaded', () => { init(); });
 
@@ -17,6 +22,8 @@ async function init() {
 
 function bindEvents() {
     document.getElementById('btnGenera').addEventListener('click', genera);
+    const btnRand = document.getElementById('btnGeneraRand');
+    if (btnRand) btnRand.addEventListener('click', generaRand);
     document.getElementById('btnSalva').addEventListener('click', salva);
     document.getElementById('btnVerifica').addEventListener('click', verifica);
     document.getElementById('btnAutoVerifica').addEventListener('click', autoVerifica);
@@ -77,7 +84,7 @@ async function loadProssima() {
 async function loadEstrazioni() {
     const data = await apiGet('/api/estrazioni?n=20');
     const tbody = document.querySelector('#estrazioniTable tbody');
-    tbody.innerHTML = data.map(e => `<tr><td>${e.data}</td><td class="numeri-cell">${e.numeri.join(' - ')}</td><td>${e.jolly||'-'}</td><td>${e.star||'-'}</td></tr>`).join('');
+    tbody.innerHTML = data.map(e => `<tr><td>${escapeHtml(e.data)}</td><td class="numeri-cell">${escapeHtml(e.numeri.join(' - '))}</td><td>${escapeHtml(e.jolly||'-')}</td><td>${escapeHtml(e.star||'-')}</td></tr>`).join('');
 }
 
 async function loadGiocate() {
@@ -87,9 +94,9 @@ async function loadGiocate() {
     tbody.innerHTML = data.map(g => {
         spent+=1;
         let esito='<span class="esito-perdita">in attesa</span>';
-        if (g.verificato && g.vincita>0) { won+=g.vincita; if(g.vincita>=100000) m4++; else if(g.vincita>=25) m3++; else if(g.vincita>=5) m2++; esito=`<span class="esito-vinto">+€${g.vincita.toLocaleString('it-IT')}</span>`; }
+        if (g.verificato && g.vincita>0) { won+=g.vincita; if(g.vincita>=100000) m4++; else if(g.vincita>=25) m3++; else if(g.vincita>=5) m2++; esito=`<span class="esito-vinto">+€${escapeHtml(g.vincita.toLocaleString('it-IT'))}</span>`; }
         else if (g.verificato) esito='<span class="esito-perdita">nessuna</span>';
-        return `<tr><td>${g.data}</td><td class="numeri-cell">${g.numeri}</td><td>${g.somma}</td><td>${esito}</td><td><button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="cancellaGiocata(${g.id})">🗑️</button></td></tr>`;
+        return `<tr><td>${escapeHtml(g.data)}</td><td class="numeri-cell">${escapeHtml(g.numeri)}</td><td>${escapeHtml(g.somma)}</td><td>${esito}</td><td><button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="cancellaGiocata(${g.id})">🗑️</button></td></tr>`;
     }).join('');
     const roi = spent>0 ? ((won/spent-1)*100).toFixed(1) : '0.0';
     document.getElementById('statSpeso').textContent=`€${spent}`;
@@ -98,7 +105,9 @@ async function loadGiocate() {
     document.getElementById('statM2').textContent=m2;
     document.getElementById('statM3').textContent=m3;
     document.getElementById('statM4').textContent=m4;
-    checkShowClear();
+    // Mostra/nascondi bottone clear in base ai dati già caricati (evita doppia chiamata API)
+    const btn = document.getElementById('btnClearGiocate');
+    if (btn) btn.style.display = data.length > 0 ? 'block' : 'none';
 }
 
 async function loadStats() {
@@ -110,11 +119,11 @@ async function loadStats() {
             ['Estrazioni', s.count], ['Media', s.mean?.toFixed(1)], ['Mediana', s.median], ['Std Dev', s.std?.toFixed(1)],
             ['Q1', s.q1], ['Q3', s.q3], ['Min', s.min], ['Max', s.max],
         ];
-        grid.innerHTML = items.map(([k,v]) => `<div class="stat"><span class="stat-label">${k}</span><span class="stat-value">${v}</span></div>`).join('');
+        grid.innerHTML = items.map(([k,v]) => `<div class="stat"><span class="stat-label">${escapeHtml(k)}</span><span class="stat-value">${escapeHtml(v)}</span></div>`).join('');
         const top = document.getElementById('top10');
         if (top && s.num_counts) {
             const entries = Object.entries(s.num_counts).slice(0,10);
-            top.innerHTML = entries.map(([n,c],i) => `${i+1}. Numero ${n} — ${c} volte`).join('<br>');
+            top.innerHTML = entries.map(([n,c],i) => `${escapeHtml(i+1)}. Numero ${escapeHtml(n)} — ${escapeHtml(c)} volte`).join('<br>');
         }
     } catch {}
 }
@@ -124,7 +133,7 @@ async function loadPremi() {
         const data = await apiGet('/api/premi');
         const tbody = document.getElementById('premiBody');
         if (tbody && data.premi) {
-            tbody.innerHTML = data.premi.map(p => `<tr><td>${p.match}</td><td>1:${p.odds}</td><td>€${p.premio.toLocaleString('it-IT')}</td><td>${p.ultimo||'-'}</td></tr>`).join('');
+            tbody.innerHTML = data.premi.map(p => `<tr><td>${escapeHtml(p.match)}</td><td>1:${escapeHtml(p.odds)}</td><td>€${escapeHtml(p.premio.toLocaleString('it-IT'))}</td><td>${escapeHtml(p.ultimo||'-')}</td></tr>`).join('');
         }
         const info = document.getElementById('jackpotInfo');
         if (info && data.jackpot) info.textContent = `Jackpot attuale: ${data.jackpot} — aggiornato da config/API`;
@@ -136,21 +145,33 @@ async function loadStorico(n=40) {
         const data = await apiGet(`/api/estrazioni?n=${n}`);
         const tbody = document.querySelector('#storicoTable tbody');
         if (!tbody) return;
-        tbody.innerHTML = data.map(e => `<tr><td>${e.data}</td><td class="numeri-cell">${e.numeri.join(' - ')}</td><td>${e.jolly||'-'}</td><td>${e.star||'-'}</td><td>${e.numeri.reduce((a,b)=>a+b,0)}</td></tr>`).join('');
+        tbody.innerHTML = data.map(e => `<tr><td>${escapeHtml(e.data)}</td><td class="numeri-cell">${escapeHtml(e.numeri.join(' - '))}</td><td>${escapeHtml(e.jolly||'-')}</td><td>${escapeHtml(e.star||'-')}</td><td>${escapeHtml(e.numeri.reduce((a,b)=>a+b,0))}</td></tr>`).join('');
     } catch {}
 }
 
 async function genera() {
     const n = parseInt(document.getElementById('numSchedine').value);
     if (n>5) { alert('Max 5 schedine per volta'); return; }
-    const data = await apiGet(`/api/genera?n=${n}`);
+    const data = await apiGet(`/api/genera?n=${n}&strategy=auto`);
     generatedSchedine = data;
     const container = document.getElementById('generated');
-    container.innerHTML = data.map((s,i) => `<div class="schedina"><span class="schedina-num">Schedina ${i+1}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`).join('');
+    container.innerHTML = data.map((s,i) => `<div class="schedina"><span class="schedina-num">Schedina ${escapeHtml(i+1)} <small style="opacity:.6">[${escapeHtml(s.strategy)}]</small>:</span><span class="schedina-nums">${escapeHtml(s.nums.join(' - '))}</span><span class="schedina-somma">[${escapeHtml(s.sum)}]</span></div>`).join('');
     document.getElementById('btnSalva').style.display='block';
-    setStatus(`Generate ${n} schedine`);
+    const badge = document.getElementById('autoStrategyBadge');
+    if (badge && data[0]) badge.textContent = `Auto → ${data[0].strategy} (richiesta: ${data[0].requested})`;
+    setStatus(`Generate ${n} schedine (auto: ${data[0]?.strategy||'?'})`);
     // suono Win (richiesta)
     try { const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); o.type='sine'; o.frequency.value=880; o.connect(ctx.destination); o.start(); setTimeout(()=>{o.stop(); ctx.close();},180); } catch {}
+}
+async function generaRand() {
+    const n = parseInt(document.getElementById('numSchedine').value);
+    const data = await apiGet(`/api/genera?n=${n}&strategy=quartile`);
+    generatedSchedine = data;
+    document.getElementById('generated').innerHTML = data.map((s,i) => `<div class="schedina"><span class="schedina-num">Schedina ${escapeHtml(i+1)} [quartile]:</span><span class="schedina-nums">${escapeHtml(s.nums.join(' - '))}</span><span class="schedina-somma">[${escapeHtml(s.sum)}]</span></div>`).join('');
+    document.getElementById('btnSalva').style.display='block';
+    const badge = document.getElementById('autoStrategyBadge');
+    if (badge) badge.textContent = 'Modalità manuale: quartile';
+    setStatus(`Generate ${n} schedine (quartile)`);
 }
 async function salva() {
     if (generatedSchedine.length===0) return;
@@ -162,8 +183,8 @@ async function verifica() { const r=await apiPost('/api/verifica', {only_uncheck
 async function autoVerifica() { const r=await apiPost('/api/verifica', {only_unchecked:true}); showVerifica(r); await loadGiocate(); }
 function showVerifica(result) {
     const c=document.getElementById('verificaResult');
-    let html=`<div style="margin-bottom:16px;"><strong>Verificate:</strong> ${result.checked} | <strong>Saltate:</strong> ${result.skipped} | <strong>Totale:</strong> €${result.tot_win.toLocaleString('it-IT')}</div>`;
-    if(result.results?.length){ html+='<div style="max-height:300px;overflow-y:auto;">'+result.results.map(r=>`<div style="padding:4px 0;border-bottom:1px solid var(--border);"><strong>${r.data}</strong> — ${r.matches} indovinati${r.jolly_hit?' (+Jolly)':''} → <span class="${r.premio>0?'esito-vinto':'esito-perdita'}">${r.premio>0?'€'+r.premio.toLocaleString('it-IT'):'nessuna'}</span></div>`).join('')+'</div>'; }
+    let html=`<div style="margin-bottom:16px;"><strong>Verificate:</strong> ${escapeHtml(result.checked)} | <strong>Saltate:</strong> ${escapeHtml(result.skipped)} | <strong>Totale:</strong> €${escapeHtml(result.tot_win.toLocaleString('it-IT'))}</div>`;
+    if(result.results?.length){ html+='<div style="max-height:300px;overflow-y:auto;">'+result.results.map(r=>`<div style="padding:4px 0;border-bottom:1px solid var(--border);"><strong>${escapeHtml(r.data)}</strong> — ${escapeHtml(r.matches)} indovinati${r.jolly_hit?' (+Jolly)':''} → <span class="${r.premio>0?'esito-vinto':'esito-perdita'}">${r.premio>0?'€'+escapeHtml(r.premio.toLocaleString('it-IT')):'nessuna'}</span></div>`).join('')+'</div>'; }
     c.innerHTML=html; document.getElementById('modalVerifica').classList.add('active');
 }
 function closeModal(){ document.getElementById('modalVerifica').classList.remove('active'); }
@@ -216,14 +237,6 @@ async function clearGiocate() {
     } catch {}
 }
 
-async function checkShowClear() {
-    try {
-        const data = await apiGet('/api/giocate');
-        const btn = document.getElementById('btnClearGiocate');
-        if (btn) btn.style.display = data.length > 0 ? 'block' : 'none';
-    } catch {}
-}
-
 async function loadBackups() {
     try {
         const data = await apiGet('/api/backups');
@@ -248,20 +261,9 @@ async function loadRanking() {
     try {
         const data = await apiGet('/api/ranking');
         const tbody = document.querySelector('#rankingTable tbody');
-        if (data && Array.isArray(data)) {
-            tbody.innerHTML = data.map(item => {
-                const row = `<tr>`;
-                row.innerHTML = `
-                    <td>${item.name || 'N/A'}</td>
-                    <td>${item.numbers || 'N/A'}</td>
-                    <td>${item.jolly || '-'}</td>
-                    <td>${item.star || '-'}</td>
-                    <td>${item.sum || 'N/A'}</td>
-                    <td>${item.rank || 'N/A'}</td>
-                `;
-                return row;
-            }).join('');
-        }
+        if (!tbody) return;
+        const list = Array.isArray(data) ? data : (data.rankings || []);
+        tbody.innerHTML = list.map(item => `<tr><td>${escapeHtml(item.strategy || item.name || 'N/A')}</td><td>${escapeHtml(item.score != null ? item.score.toFixed?.(3) ?? item.score : 'N/A')}</td><td>${escapeHtml(item.rank || 'N/A')}</td></tr>`).join('');
     } catch (err) {
         console.error('Failed to load ranking', err);
     }
@@ -309,7 +311,7 @@ async function generaStrategia() {
         if (r.length > 0) {
             generatedStrategia = r;
             const s = r[0];
-            container.innerHTML = `<div class="schedina"><span class="schedina-num">Strategia ${strat}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`;
+            container.innerHTML = `<div class="schedina"><span class="schedina-num">Strategia ${escapeHtml(strat)}:</span><span class="schedina-nums">${escapeHtml(s.nums.join(' - '))}</span><span class="schedina-somma">[${escapeHtml(s.sum)}]</span></div>`;
             status.textContent=`Generata (${strat}), somma ${s.sum}`;
             document.getElementById('btnSalvaStrategia').style.display='block';
         }
@@ -339,7 +341,7 @@ async function generaMultiStrategia() {
         if (r.length > 0) {
             generatedStrategia = r;
             container.innerHTML = r.map((s, i) =>
-                `<div class="schedina"><span class="schedina-num">Schedina ${i+1}:</span><span class="schedina-nums">${s.nums.join(' - ')}</span><span class="schedina-somma">[${s.sum}]</span></div>`
+                `<div class="schedina"><span class="schedina-num">Schedina ${escapeHtml(i+1)}:</span><span class="schedina-nums">${escapeHtml(s.nums.join(' - '))}</span><span class="schedina-somma">[${escapeHtml(s.sum)}]</span></div>`
             ).join('');
             status.textContent = `Generate ${r.length} schedine (${strat}). Salva una alla volta.`;
             document.getElementById('btnSalvaStrategia').style.display = 'block';

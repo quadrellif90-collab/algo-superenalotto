@@ -4,8 +4,9 @@ $csvPath = Join-Path $scriptDir "superenalotto.csv"
 $trackingPath = Join-Path $scriptDir "tracking.csv"
 $configPath = Join-Path $scriptDir "config.json"
 
-# Carica configurazione da file o usa default
-$apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+# Carica configurazione: env SUPERENALOTTO_API_KEY > config.json > vuoto (richiede config)
+$apiKey = $env:SUPERENALOTTO_API_KEY
+if (-not $apiKey) { $apiKey = "" }
 $lotteryId = 712
 $apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=$lotteryId"
 

@@ -99,8 +99,8 @@
    - Report completo in `backtest_full_4226.json`
 
 3. **API Key Management**:
-   - `config.json` contiene: `"apiKey": "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"`
-   - `superenalotto_app.py` usa `_load_api_key()` per sicurezza
+   - `config.json` contiene: `"apiKey": "<SUPERENALOTTO_API_KEY da env o config.json>"` (mai committare il valore reale)
+   - `gateway/engine.py` usa `os.environ.get("SUPERENALOTTO_API_KEY")` + `config.json`
 
 ### 🏆 **RISULTATI FINALI**
 

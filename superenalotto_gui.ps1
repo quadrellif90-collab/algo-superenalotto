@@ -10,9 +10,10 @@ $dailyLimitPath = Join-Path $scriptDir "daily_limit.csv"
 $analisiJsonPath = Join-Path $scriptDir "analisi_completa.json"
 $configPath = Join-Path $scriptDir "config.json"
 
-# Carica configurazione
+# Carica configurazione — apiKey da env o config.json (mai hardcoded)
+$envKey = $env:SUPERENALOTTO_API_KEY
 $config = @{
-    apiKey = "170961|hANG0dLIQx1exfP7UHLxfx8lwlg8FGQMmxHRQ1CO0117787d"
+    apiKey = if ($envKey) { $envKey } else { "" }
     apiUrl = "https://api.lotteryresultsfeed.com/v1/results/latest?lottery_id=712"
     lotteryId = 712
 }

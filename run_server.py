@@ -4,17 +4,19 @@
 import sys
 import os
 
-# Aggiungi gateway al path
+# In frozen PyInstaller, i moduli gateway sono in _MEIPASS (hiddenimports)
+# In dev mode, gateway/ è nella stessa directory del progetto
 if getattr(sys, 'frozen', False):
-    gateway_dir = os.path.join(os.path.dirname(sys.executable), 'gateway')
+    # PyInstaller: moduli già in sys.path tramite hiddenimports
+    pass
 else:
-    gateway_dir = os.path.join(os.path.dirname(__file__), 'gateway')
+    # Dev mode: aggiungi la directory progetto al path
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    if project_dir not in sys.path:
+        sys.path.insert(0, project_dir)
 
-if gateway_dir not in sys.path:
-    sys.path.insert(0, gateway_dir)
-
-# Avvia il server
-from server import start_server
+# Avvia il server (usa sempre il prefisso gateway. per compatibilità frozen)
+from gateway.server import start_server
 
 if __name__ == '__main__':
     start_server()

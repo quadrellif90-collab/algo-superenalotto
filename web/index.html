@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuperEnalotto v8.2</title>
+    <title>SuperEnalotto v8.3</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
         <header class="header">
             <div class="header-left">
                 <h1>★ SuperEnalotto</h1>
-                <span class="version">v8.2</span>
-                <span style="margin-left:12px;font-size:11px;opacity:0.9;">QuartileSpread • 4235 estrazioni</span>
+                <span class="version">v8.3</span>
+                <span style="margin-left:12px;font-size:11px;opacity:0.9;">QuartileSpread • 4238 estrazioni</span>
             </div>
             <div class="header-right">
                 <div class="jackpot">
@@ -57,10 +57,14 @@
                             <option value="5">5</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary btn-generate" id="btnGenera">★ GENERA SCHEDINE</button>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-primary btn-generate" id="btnGenera" style="flex:1;">★ GENERA (Auto)</button>
+                        <button class="btn" id="btnGeneraRand" title="Genera 1 random veloce" style="flex:0;">🎲</button>
+                    </div>
                     <div class="generated" id="generated"></div>
                     <button class="btn btn-success btn-save" id="btnSalva" style="display:none;">💾 SALVA SCHEDINE</button>
-                    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Le altre strategie (HotCold, AntiRecent...) restano per backtest.</p>
+                    <div id="autoStrategyBadge" style="font-size:11px;color:var(--text-muted);margin-top:8px;"></div>
+                    <p style="font-size:11px;color:var(--text-muted);">Auto sceglie la strategia migliore su ultime 50 estrazioni (deterministico, senza leakage). Usa tab Strategie per test manuali.</p>
                 </section>
 
                 <section class="panel my-plays">
@@ -99,7 +103,7 @@
             <!-- TAB: STATISTICHE -->
             <div class="tab-content" id="tab-stats" style="display:none; width:100%;">
                 <section class="panel">
-                    <h2>📊 Statistiche Complete (4235 estrazioni)</h2>
+                    <h2>📊 Statistiche Complete (4238 estrazioni)</h2>
                     <div id="statsGrid" style="display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:16px;"></div>
                     <div style="margin-top:16px;">
                         <h3 style="font-size:13px; color:var(--accent);">Top 10 numeri frequenti</h3>
@@ -126,7 +130,7 @@
                 <section class="panel">
                     <h2>🎱 Storico Estrazioni</h2>
                     <div style="display:flex; gap:8px; margin-bottom:12px;">
-                        <button class="btn btn-primary" id="btnAggiornaStorico" style="flex:0;">🔄 Aggiorna Storico (50 pagine)</button>
+                        <button class="btn btn-primary" id="btnAggiornaStorico" style="flex:0;">🔄 Aggiorna Storico (3 pagine)</button>
                         <span id="storicoStatus" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
                     </div>
                     <div class="table-container" style="max-height:500px;">
@@ -144,6 +148,7 @@
                     <h2>🎯 Strategie di Generazione</h2>
                     <div style="display:flex; gap:8px; margin-bottom:12px;">
                         <select id="strategiaSelect" style="padding:6px; flex:1;">
+<option value="auto">🤖 Auto (pattern — migliore su ultime 50)</option>
 <option value="quartile">📊 QuartileSpread (default)</option>
                             <option value="optimized">🎯 Optimized (comune denominatore)</option>
                             <option value="sumlocked">🔒 SumLocked (274-278)</option>
@@ -210,8 +215,8 @@
                       </div>
                       <div id="toolStatus" style="margin-top:12px; font-size:12px; color:var(--text-muted);"></div>
                      <div style="margin-top:16px;">
-                         <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/giocate'" target='_blank' style="font-size:11px; padding:4px 8px;">📄 JSON Giocate</button>
-                         <button class="btn btn-info" onclick="window.location.href='http://localhost:8766/api/estrazioni?n=20'" target='_blank' style="font-size:11px; padding:4px 8px; margin-left:4px;">📄 JSON Estrazioni</button>
+                         <button class="btn btn-info" onclick="window.location.href='/api/giocate'" target='_blank' style="font-size:11px; padding:4px 8px;">📄 JSON Giocate</button>
+                        <button class="btn btn-info" onclick="window.location.href='/api/estrazioni?n=20'" target='_blank' style="font-size:11px; padding:4px 8px; margin-left:4px;">📄 JSON Estrazioni</button>
                      </div>
                  </section>
              </div>
@@ -219,7 +224,7 @@
         </div>
 
         <footer class="footer">
-            <span>SuperEnalotto v8.2 — Strategia QuartileSpread • Verde 7.18</span>
+            <span>SuperEnalotto v8.3 — Strategia QuartileSpread • Verde 7.18</span>
             <span id="statusBar">Pronto</span>
         </footer>
     </div>
