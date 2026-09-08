@@ -127,6 +127,16 @@ def start_backend():
         raise
 
 
+def stop_backend():
+    """Ferma il server HTTP in modo ordinato (shutdown cross-thread)."""
+    try:
+        from gateway.server import stop_server
+        stop_server()
+        logger.info("Backend server fermato ordinatamente")
+    except Exception as e:
+        logger.error(f"stop_backend error: {e}")
+
+
 def wait_server(max_attempts=30, delay=1):
     """Attende che il server risponda all'API /api/stats."""
     api_url = URL + "/api/stats"
@@ -210,15 +220,20 @@ if __name__ == '__main__':
             threading.Thread(target=_show_notification, daemon=True).start()
 
         # webview.start() DEVE girare nel thread principale (STA per WinForms).
-        # Il server HTTP (ThreadingHTTPServer) gira nel backend_thread (daemon)
-        # e gestisce richieste in thread separati grazie a ThreadingHTTPServer.
+        # Il server HTTP (ThreadingHTTPServer) gira nel backend_thread (daemon).
         logger.info("Avvio webview.start()...")
         webview.start()
-        logger.info("webview.start() terminato")
-        # Se webview.start() ritorna, manteniamo il backend vivo
-        # (la finestra potrebbe chiudersi ma il server deve continuare o termina)
-        while backend_thread.is_alive():
-            time.sleep(1)
+        logger.info("webview.start() terminato - finestra chiusa")
+
+        # Chiusura COMPLETA: la finestra e' stata chiusa, spegniamo il backend
+        # in modo ordinato e facciamo uscire il processo. Niente hide-to-tray,
+        # niente keep-alive: chiudere la finestra termina l'applicazione.
+        stop_backend()
+        # Diamo al backend_thread il tempo di completare il cleanup (engine.close)
+        for _ in range(10):
+            if not backend_thread.is_alive():
+                break
+            time.sleep(0.2)
     except KeyboardInterrupt:
         logger.info("KeyboardInterrupt")
         logger.info("Chiusura in corso...")

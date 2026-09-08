@@ -1,6 +1,6 @@
 # AUDIT COMPLETO DEGLI ALGORITMI E DEI MODELLI DEL SUPERENALOTTO
 
-**Data generazione:** 08/09/2026 08:26  
+**Data generazione:** 08/09/2026 11:06  
 **Estrazioni analizzate:** 4238  
 **Intervallo dati:** 1997-12-03 → 2026-09-04  
 **Metodologia:** backtest walk-forward out-of-sample (niente data snooping)  

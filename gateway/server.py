@@ -345,7 +345,23 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
 def open_browser():
     webbrowser.open(f'http://localhost:{PORT}')
 
+# Istanza server attiva (per shutdown ordinato cross-thread)
+_server_instance = None
+
+
+def stop_server():
+    """Ferma il server HTTP avviato da start_server in un thread separato."""
+    global _server_instance
+    srv = _server_instance
+    if srv is not None:
+        try:
+            srv.shutdown()
+        except Exception:
+            pass
+
+
 def start_server(open_browser_flag=True):
+    global _server_instance
     engine = SuperenalottoEngine()
     SuperenalottoHandler.engine = engine
 
@@ -374,6 +390,7 @@ def start_server(open_browser_flag=True):
 
     server = ThreadingHTTPServer(('127.0.0.1', PORT), SuperenalottoHandler)
     server.timeout = 0.5
+    _server_instance = server
     logger.info(f"SuperEnalotto Server running on http://localhost:{PORT}")
 
     if open_browser_flag:
