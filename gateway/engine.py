@@ -93,6 +93,222 @@ STRATEGY_NAMES = [
     'fibonacci', 'adaptive', 'ensemble', 'mlpattern'
 ]
 
+# ── Strategy Registry con priorità e trasparenza ──────────────────────────
+# Tier A (priorità alta) → strategie "ibride" con più vincoli statistici
+# Tier B (priorità media) → strategie fondamentali basate su distribuzioni
+# Tier C (priorità bassa) → strategie esplorative/menoritarie
+#
+# NOTA ETICA: Nessuna strategia batte statisticamente il caso (audit pFDR 0.96-1.0).
+# Il ranking serve SOLO per organizzare l'esperienza d'uso, NON per predire vincite.
+STRATEGY_REGISTRY = {
+    'optimized': {
+        'tier': 'A', 'priority': 1,
+        'label': 'Optimized',
+        'description': 'Pattern comune denominatore su 4238 estrazioni. NON ha vantaggio statistico dimostrato.',
+        'transparency': 'Simulazione — house edge ~67%',
+    },
+    'adaptive': {
+        'tier': 'A', 'priority': 2,
+        'label': 'Adaptive Predictive',
+        'description': 'Combina pattern storici e trend recenti. Risultati storicamente non significativi (pFDR 0.99).',
+        'transparency': 'Simulazione — nessuna predittività reale',
+    },
+    'ensemble': {
+        'tier': 'A', 'priority': 3,
+        'label': 'Rotating Ensemble',
+        'description': 'Combina più strategie in rotazione. Diversifica senza vantaggio.',
+        'transparency': 'Simulazione — variance ridotta, stesso house edge',
+    },
+    'quartile': {
+        'tier': 'A', 'priority': 4,
+        'label': 'Quartile Spread',
+        'description': 'Distribuzione uniforme su quartili. La baseline di riferimento.',
+        'transparency': 'Simulazione — benchmark standard',
+    },
+    'mlpattern': {
+        'tier': 'B', 'priority': 5,
+        'label': 'ML Pattern',
+        'description': 'Pattern recognition su dati storici. Non dimostrato superiore al caso.',
+        'transparency': 'Simulazione — pattern matching, non predizione',
+    },
+    'mix': {
+        'tier': 'B', 'priority': 6,
+        'label': 'Mixed Strategy',
+        'description': 'Combinazione di HotCold + AntiRecent + Quartile.',
+        'transparency': 'Simulazione — composizione di euristiche',
+    },
+    'mixhotcoldprime': {
+        'tier': 'B', 'priority': 7,
+        'label': 'Mix HC+Prime',
+        'description': 'HotCold combinato con PrimeFocus.',
+        'transparency': 'Simulazione — composizione di euristiche',
+    },
+    'mixquartilehotcold': {
+        'tier': 'B', 'priority': 8,
+        'label': 'Mix Q+HC',
+        'description': 'Quartile combinato con HotCold.',
+        'transparency': 'Simulazione — composizione di euristiche',
+    },
+    'hotcold': {
+        'tier': 'B', 'priority': 9,
+        'label': 'Hot/Cold Spread',
+        'description': 'Numeri caldi (ultime 10 estrazioni) e freddi. ROI -49.8% su 4238 estrazioni.',
+        'transparency': 'Simulazione — house edge ~67%',
+    },
+    'sumlocked': {
+        'tier': 'B', 'priority': 10,
+        'label': 'Sum Locked',
+        'description': 'Somma vincolata a 274-278 (media storica).',
+        'transparency': 'Simulazione — vincolo su somma, non su vincita',
+    },
+    'primefocus': {
+        'tier': 'C', 'priority': 11,
+        'label': 'Prime Focus',
+        'description': 'Almeno 3 numeri primi. Pricipio: distribuzione primi ~30% casuale.',
+        'transparency': 'Simulazione — nessuna edge su numeri primi',
+    },
+    'middlefreq': {
+        'tier': 'C', 'priority': 12,
+        'label': 'Middle Frequency',
+        'description': 'Numeri di frequenza media. Evita hot/cold estremi.',
+        'transparency': 'Simulazione — mediaCampione, non predizione',
+    },
+    'gapspread': {
+        'tier': 'C', 'priority': 13,
+        'label': 'Gap Spread',
+        'description': 'Massimizza distanza minima tra numeri adiacenti.',
+        'transparency': 'Simulazione — spacing, non contenuto',
+    },
+    'complement': {
+        'tier': 'C', 'priority': 14,
+        'label': 'Complement Mirror',
+        'description': '3 numeri + 3 complementari (91-n).',
+        'transparency': 'Simulazione — simmetria, non vantaggio',
+    },
+    'antirecent': {
+        'tier': 'C', 'priority': 15,
+        'label': 'Anti-Recent',
+        'description': 'Evita numeri usciti nelle ultime 5 estrazioni. ROI -54.1% su 4238.',
+        'transparency': 'Simulazione — fallacy del giocatore',
+    },
+    'fibonacci': {
+        'tier': 'C', 'priority': 16,
+        'label': 'Fibonacci Wheel',
+        'description': 'Numeri della sequenza di Fibonacci. 7.08% M3+/1000, ROI -91.15%.',
+        'transparency': 'Simulazione — sequenza numerica, nessun vantaggio',
+    },
+}
+
+# Ordine di priorità estratto dal registry (per ordine di ranking giornaliero)
+STRATEGY_PRIORITY_ORDER = sorted(STRATEGY_REGISTRY.keys(), key=lambda s: STRATEGY_REGISTRY[s]['priority'])
+
+class DailyPlayTracker:
+    """Traccia una giocata per strategia per giorno. Massimo 1 per strategia per data."""
+
+    def __init__(self, conn):
+        self.conn = conn
+        self._init_table()
+
+    def _init_table(self):
+        c = self.conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS daily_plays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data TEXT NOT NULL,
+                strategy TEXT NOT NULL,
+                numeri TEXT NOT NULL,
+                somma INT NOT NULL,
+                is_override INT DEFAULT 0,
+                created_at TEXT NOT NULL,
+                UNIQUE(data, strategy)
+            )
+        """)
+        self.conn.commit()
+
+    def can_play(self, data, strategy):
+        """True se la strategia non ha ancora giocato per questa data."""
+        c = self.conn.cursor()
+        c.execute("SELECT COUNT(*) FROM daily_plays WHERE data=? AND strategy=?", (data, strategy))
+        return c.fetchone()[0] == 0
+
+    def record_play(self, data, strategy, numeri, somma, is_override=False):
+        """Registra una giocata. Ritorna True se registrata, False se bloccata."""
+        if not self.can_play(data, strategy):
+            return False
+        c = self.conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO daily_plays (data, strategy, numeri, somma, is_override, created_at) VALUES (?,?,?,?,?,?)",
+            (data, strategy, '-'.join(map(str, numeri)), somma, 1 if is_override else 0, datetime.now().isoformat())
+        )
+        self.conn.commit()
+        return c.rowcount > 0
+
+    def get_daily_plays(self, data):
+        """Ritorna tutte le giocate registrate per una data."""
+        c = self.conn.cursor()
+        c.execute("SELECT strategy, numeri, somma, is_override, created_at FROM daily_plays WHERE data=? ORDER BY created_at", (data,))
+        return [
+            {"strategy": r[0], "numeri": r[1], "somma": r[2], "is_override": bool(r[3]), "created_at": r[4]}
+            for r in c.fetchall()
+        ]
+
+    def get_daily_status(self, data=None):
+        """Ritorna lo stato di gioco per ogni strategia nella data specificata (default: oggi)."""
+        if data is None:
+            data = datetime.now().strftime('%Y-%m-%d')
+        plays = {p["strategy"]: p for p in self.get_daily_plays(data)}
+        status = {}
+        for name in STRATEGY_PRIORITY_ORDER:
+            info = STRATEGY_REGISTRY[name]
+            played = name in plays
+            status[name] = {
+                "tier": info["tier"],
+                "priority": info["priority"],
+                "label": info["label"],
+                "description": info["description"],
+                "transparency": info["transparency"],
+                "played": played,
+                "numeri": plays[name]["numeri"] if played else None,
+                "somma": plays[name]["somma"] if played else None,
+                "is_override": plays[name]["is_override"] if played else False,
+            }
+        return {"date": data, "strategies": status}
+
+    def get_7day_report(self, end_date=None):
+        """Verifica per 7 giorni consecutivi di estrazione."""
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        report = []
+        checked = 0
+        d = end_dt
+        while checked < 7:
+            date_str = d.strftime('%Y-%m-%d')
+            dow = d.weekday()
+            plays = self.get_daily_plays(date_str)
+            report.append({
+                "date": date_str,
+                "is_draw_day": dow in DRAW_DOWS,
+                "plays_count": len(plays),
+                "strategies_used": [p["strategy"] for p in plays],
+                "any_override": any(p["is_override"] for p in plays),
+                "compliant": len(plays) <= len(STRATEGY_PRIORITY_ORDER),
+            })
+            d -= timedelta(days=1)
+            checked += 1
+            if checked < 7:
+                while d.weekday() not in DRAW_DOWS:
+                    d -= timedelta(days=1)
+        return {"report": report, "total_days": len(report)}
+
+    def force_clear_strategy(self, data, strategy):
+        """Forza la rimozione di una giocata per una strategia in una data (admin)."""
+        c = self.conn.cursor()
+        c.execute("DELETE FROM daily_plays WHERE data=? AND strategy=?", (data, strategy))
+        self.conn.commit()
+        return c.rowcount > 0
+
+
 class SuperenalottoEngine:
     def __init__(self, db_path=None):
         import threading as _t
@@ -105,6 +321,7 @@ class SuperenalottoEngine:
         self._ranking_cache = None
         self._ranking_cache_fp = ""
         self._ranking_cache_ts = 0
+        self._daily_tracker = None
         self._init_db()
 
     def _get_data_path(self, filename):
@@ -179,6 +396,7 @@ class SuperenalottoEngine:
         tracking_exists = os.path.exists(self.tracking_path)
         self._import_tracking()
         self._load_records()
+        self._daily_tracker = DailyPlayTracker(self.conn)
 
     def _import_csv(self):
         c = self.conn.cursor()
@@ -379,9 +597,9 @@ class SuperenalottoEngine:
                 return c
         return sorted(self._rng.sample(range(1, 91), 6))
 
-    def genera_schedine(self, n=1, strategy='quartile'):
-        """Genera n schedine con strategia specificata."""
-        strategies = {
+    def _get_strategies(self):
+        """Ritorna il dizionario delle strategie generatorie."""
+        return {
             'quartile': self.quartile_spread,
             'hotcold': self.hot_cold_spread,
             'antirecent': self.anti_recent_spread,
@@ -394,14 +612,76 @@ class SuperenalottoEngine:
             'mixhotcoldprime': self.mix_hotcold_prime,
             'mixquartilehotcold': self.mix_quartile_hotcold,
             'optimized': self.optimized_spread,
-            # Nuove strategie
             'fibonacci': self.fibonacci_wheel_spread,
             'adaptive': self.adaptive_predictive_spread,
             'ensemble': self.rotating_ensemble_spread,
             'mlpattern': self.machine_learning_pattern_spread,
         }
-        gen = strategies.get(strategy, self.quartile_spread)
+
+    def genera_schedine(self, n=1, strategy='quartile'):
+        """Genera n schedine con strategia specificata (senza enforcement)."""
+        gen = self._get_strategies().get(strategy, self.quartile_spread)
         return [gen() for _ in range(n)]
+
+    def can_strategy_play_today(self, strategy):
+        """True se la strategia non ha ancora giocato oggi."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        return self._daily_tracker.can_play(today, strategy)
+
+    def get_top_strategy_for_today(self):
+        """Ritorna la prima strategia disponibile per oggi secondo la priorità."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        for name in STRATEGY_PRIORITY_ORDER:
+            if self._daily_tracker.can_play(today, name):
+                return name
+        return None
+
+    def genera_unica_schedina_today(self, strategy=None, is_override=False):
+        """Genera esattamente 1 schedina per oggi. Se strategy=None usa la top disponibile.
+        Registra nel DailyPlayTracker. Ritorna dict con risultato o errore."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        if strategy is None:
+            strategy = self.get_top_strategy_for_today()
+            if strategy is None:
+                return {"error": "Tutte le strategie hanno già giocato oggi.", "blocked": True}
+        else:
+            if strategy not in STRATEGY_REGISTRY:
+                return {"error": f"Strategia '{strategy}' non valida.", "blocked": True}
+            if not is_override and not self.can_strategy_play_today(strategy):
+                info = STRATEGY_REGISTRY[strategy]
+                return {
+                    "error": f"Strategia '{info['label']}' ha già giocato oggi (priorità #{info['priority']}). "
+                             f"Usa override per sovrascrivere.",
+                    "blocked": True,
+                    "strategy_info": info,
+                }
+
+        nums = self.genera_schedine(1, strategy=strategy)[0]
+        somma = sum(nums)
+        recorded = self._daily_tracker.record_play(today, strategy, nums, somma, is_override=is_override)
+        if not recorded:
+            return {"error": "Bloccato: giocata già registrata per questa strategia oggi.", "blocked": True}
+
+        info = STRATEGY_REGISTRY.get(strategy, {})
+        return {
+            "nums": nums,
+            "somma": somma,
+            "strategy": strategy,
+            "label": info.get("label", strategy),
+            "tier": info.get("tier", "?"),
+            "priority": info.get("priority", 0),
+            "transparency": info.get("transparency", ""),
+            "is_override": is_override,
+            "date": today,
+        }
+
+    def get_strategy_ranking(self):
+        """Ritorna la lista ordinata delle strategie con stato di gioco per oggi."""
+        return self._daily_tracker.get_daily_status()
+
+    def get_7day_enforcement_report(self):
+        """Ritorna il report di compliance degli ultimi 7 giorni."""
+        return self._daily_tracker.get_7day_report()
 
     def hot_cold_spread(self, n_hot=3, n_cold=3):
         """HotCold: 3-4 numeri caldi (ultime 10), 2-3 freddi (mai o raramente usciti)."""

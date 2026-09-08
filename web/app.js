@@ -17,6 +17,7 @@ async function init() {
     await loadPremi();
     await loadStorico(40);
     await loadBackups();
+    await loadDailyStatus();
     bindEvents();
 }
 
@@ -49,6 +50,11 @@ function bindEvents() {
     if (btnBak) btnBak.addEventListener('click', backupNow);
     const btnRes = document.getElementById('btnRestoreBackup');
     if (btnRes) btnRes.addEventListener('click', restoreBackup);
+    // Daily enforcement system
+    const btnDailyGen = document.getElementById('btnDailyGenerate');
+    if (btnDailyGen) btnDailyGen.addEventListener('click', generaGiornaliera);
+    const btnDailyReport = document.getElementById('btnDailyReport7');
+    if (btnDailyReport) btnDailyReport.addEventListener('click', loadDailyReport7);
 }
 
 function switchTab(name) {
@@ -348,5 +354,154 @@ async function generaMultiStrategia() {
         }
     } catch {
         status.textContent = 'Errore generazione';
+    }
+}
+
+// === DAILY ENFORCEMENT SYSTEM ===
+let dailyStatus = null;
+
+async function loadDailyStatus() {
+    try {
+        const data = await apiGet('/api/daily/status');
+        dailyStatus = data;
+        renderDailyStatus(data);
+    } catch (err) {
+        console.error('Failed to load daily status', err);
+    }
+}
+
+function renderDailyStatus(data) {
+    const container = document.getElementById('dailyStrategies');
+    if (!container) return;
+    const strategies = data.strategies || {};
+    const entries = Object.entries(strategies);
+    const played = entries.filter(([,v]) => v.played).length;
+    const total = entries.length;
+    let html = `<div class="daily-header">
+        <h4>Gioco Responsabile — ${escapeHtml(data.date)}</h4>
+        <span class="daily-counter">${played}/${total} strategie utilizzate oggi</span>
+    </div>`;
+    html += '<div class="daily-tiers">';
+    const tiers = { A: { label: 'Tier A — Priorità Alta', color: '#22c55e' }, B: { label: 'Tier B — Priorità Media', color: '#f59e0b' }, C: { label: 'Tier C — Esplorativa', color: '#94a3b8' } };
+    for (const [tierKey, tierInfo] of Object.entries(tiers)) {
+        const tierEntries = entries.filter(([,v]) => v.tier === tierKey);
+        if (tierEntries.length === 0) continue;
+        html += `<div class="daily-tier" style="border-left: 3px solid ${tierInfo.color};">
+            <div class="daily-tier-label">${escapeHtml(tierInfo.label)}</div>`;
+        for (const [name, info] of tierEntries) {
+            const statusClass = info.played ? 'played' : 'available';
+            const playedLabel = info.played ? (info.is_override ? 'Override' : 'Giocata') : 'Disponibile';
+            html += `<div class="daily-strategy ${statusClass}">
+                <div class="daily-strat-info">
+                    <span class="daily-priority">#${escapeHtml(info.priority)}</span>
+                    <strong>${escapeHtml(info.label)}</strong>
+                    <span class="daily-transparency">${escapeHtml(info.transparency)}</span>
+                </div>
+                <div class="daily-strat-status">
+                    <span class="daily-badge ${statusClass}">${escapeHtml(playedLabel)}</span>
+                    ${info.played && info.numeri ? `<span class="daily-nums">${escapeHtml(info.numeri)}</span>` : ''}
+                    ${!info.played ? `<button class="btn btn-small" onclick="generaOverride('${escapeHtml(name)}')">Scegli</button>` : ''}
+                </div>
+            </div>`;
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function generaGiornaliera() {
+    const status = document.getElementById('dailyGenerateStatus');
+    if (status) status.textContent = 'Generazione schedina del giorno...';
+    try {
+        const r = await apiGet('/api/daily/generate');
+        if (r.error) {
+            if (status) status.textContent = `⚠️ ${escapeHtml(r.error)}`;
+            return;
+        }
+        if (r.blocked) {
+            if (status) status.textContent = `🚫 Bloccato: ${escapeHtml(r.error || 'Strategia non disponibile')}`;
+            return;
+        }
+        const container = document.getElementById('dailyResult');
+        if (container) {
+            container.innerHTML = `<div class="schedina">
+                <div class="daily-result-header">
+                    <span class="daily-badge tier-${escapeHtml(r.tier)}">Tier ${escapeHtml(r.tier)} — Priorità #${escapeHtml(r.priority)}</span>
+                    ${r.is_override ? '<span class="daily-badge override">Override</span>' : ''}
+                </div>
+                <span class="schedina-num">${escapeHtml(r.label)} (${escapeHtml(r.strategy)}):</span>
+                <span class="schedina-nums">${escapeHtml(r.nums.join(' - '))}</span>
+                <span class="schedina-somma">[${escapeHtml(r.somma)}]</span>
+                <div class="daily-transparency-note">${escapeHtml(r.transparency)}</div>
+            </div>`;
+            container.style.display = 'block';
+        }
+        if (status) status.textContent = `✅ Generata: ${escapeHtml(r.label)} — somma ${escapeHtml(r.somma)}`;
+        await loadDailyStatus();
+    } catch (err) {
+        if (status) status.textContent = 'Errore nella generazione';
+    }
+}
+
+async function generaOverride(strategy) {
+    if (!confirm(`Sei sicuro di voler usare la strategia "${strategy}"? Questa azione sovrascrive la priorità giornaliera.`)) return;
+    const status = document.getElementById('dailyGenerateStatus');
+    if (status) status.textContent = `Generazione override: ${strategy}...`;
+    try {
+        const r = await apiGet(`/api/daily/generate?strategy=${strategy}&override=1`);
+        if (r.error) {
+            if (status) status.textContent = `⚠️ ${escapeHtml(r.error)}`;
+            return;
+        }
+        if (r.blocked) {
+            if (status) status.textContent = `🚫 Bloccato: ${escapeHtml(r.error)}`;
+            return;
+        }
+        const container = document.getElementById('dailyResult');
+        if (container) {
+            container.innerHTML = `<div class="schedina">
+                <div class="daily-result-header">
+                    <span class="daily-badge tier-${escapeHtml(r.tier)}">Tier ${escapeHtml(r.tier)} — Priorità #${escapeHtml(r.priority)}</span>
+                    <span class="daily-badge override">Override attivo</span>
+                </div>
+                <span class="schedina-num">${escapeHtml(r.label)} (${escapeHtml(r.strategy)}):</span>
+                <span class="schedina-nums">${escapeHtml(r.nums.join(' - '))}</span>
+                <span class="schedina-somma">[${escapeHtml(r.somma)}]</span>
+                <div class="daily-transparency-note">${escapeHtml(r.transparency)}</div>
+            </div>`;
+            container.style.display = 'block';
+        }
+        if (status) status.textContent = `✅ Override completato: ${escapeHtml(r.label)}`;
+        await loadDailyStatus();
+    } catch (err) {
+        if (status) status.textContent = 'Errore nella generazione override';
+    }
+}
+
+async function loadDailyReport7() {
+    const container = document.getElementById('dailyReport7');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-muted)">Caricamento report 7 giorni...</p>';
+    try {
+        const data = await apiGet('/api/daily/report7');
+        const report = data.report || [];
+        let html = '<h4>Report Compliance 7 Giorni</h4><table class="table"><thead><tr><th>Data</th><th>Estrazione</th><th>Giocate</th><th>Strategie</th><th>Override</th><th>Compliant</th></tr></thead><tbody>';
+        for (const day of report) {
+            const statusIcon = day.compliant ? '✅' : '❌';
+            const strategiesList = day.strategies_used.length > 0 ? day.strategies_used.join(', ') : 'Nessuna';
+            html += `<tr>
+                <td>${escapeHtml(day.date)}</td>
+                <td>${day.is_draw_day ? '📅 Sì' : '—'}</td>
+                <td>${escapeHtml(day.plays_count)}</td>
+                <td>${escapeHtml(strategiesList)}</td>
+                <td>${day.any_override ? '⚠️ Sì' : 'No'}</td>
+                <td>${statusIcon}</td>
+            </tr>`;
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<p style="color:var(--text-muted)">Errore nel caricamento del report</p>';
     }
 }

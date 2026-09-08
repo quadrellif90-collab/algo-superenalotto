@@ -144,8 +144,26 @@
 
             <!-- TAB: STRATEGIE -->
             <div class="tab-content" id="tab-strategie" style="display:none; width:100%;">
+                <!-- DAILY ENFORCEMENT SYSTEM -->
                 <section class="panel">
-                    <h2>🎯 Strategie di Generazione</h2>
+                    <h2>📅 Strategie del Giorno</h2>
+                    <p class="subtitle">Ogni strategia può generare ESATTAMENTE 1 giocata al giorno. L'ordine di priorità rispecchia il ranking trasparente delle strategie.</p>
+                    <div id="dailyStrategies" style="margin-bottom:16px;">
+                        <p style="color:var(--text-muted)">Caricamento stato giornaliero...</p>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <button class="btn btn-primary" id="btnDailyGenerate" style="flex:1;">🎲 Genera Schedina del Giorno</button>
+                        <button class="btn btn-info" id="btnDailyReport7" style="flex:1;">📊 Report 7 Giorni</button>
+                    </div>
+                    <div id="dailyGenerateStatus" style="margin-top:8px; font-size:12px; color:var(--text-muted);"></div>
+                    <div id="dailyResult" style="margin-top:12px; display:none;"></div>
+                    <div id="dailyReport7" style="margin-top:16px;"></div>
+                </section>
+
+                <!-- GENERAZIONE MANUALE (legacy) -->
+                <section class="panel">
+                    <h2>🎯 Generazione Manuale</h2>
+                    <p class="subtitle">Seleziona una strategia specifica per generare schedine. Ogni strategia è limitata a 1 giocata giornaliera.</p>
                     <div style="display:flex; gap:8px; margin-bottom:12px;">
                         <select id="strategiaSelect" style="padding:6px; flex:1;">
 <option value="auto">🤖 Auto (pattern — migliore su ultime 50)</option>

@@ -182,6 +182,31 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response(result)
             except Exception as e:
                 self._json_response({'error': str(e)})
+        elif path == '/api/daily/status':
+            try:
+                date = parse_qs(parsed.query).get('date', [None])[0]
+                result = self.engine.get_strategy_ranking() if date is None else self.engine._daily_tracker.get_daily_status(date)
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({'error': str(e)})
+        elif path == '/api/daily/generate':
+            try:
+                strategy = parse_qs(parsed.query).get('strategy', [None])[0]
+                override = parse_qs(parsed.query).get('override', ['0'])[0] in ('1', 'true')
+                result = self.engine.genera_unica_schedina_today(
+                    strategy=strategy if strategy else None,
+                    is_override=override
+                )
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({'error': str(e)})
+        elif path == '/api/daily/report7':
+            try:
+                end_date = parse_qs(parsed.query).get('date', [None])[0]
+                result = self.engine.get_7day_enforcement_report() if end_date is None else self.engine._daily_tracker.get_7day_report(end_date)
+                self._json_response(result)
+            except Exception as e:
+                self._json_response({'error': str(e)})
         else:
             super().do_GET()
 
@@ -264,6 +289,24 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
                 self._json_response({'error': str(e)})
         elif path == '/api/chiudi':
             self._json_response({'ok': True})
+        elif path == '/api/daily/clear':
+            try:
+                body = self._read_json()
+                if not body:
+                    self._json_response({'ok': False, 'error': 'Invalid JSON'})
+                    return
+                date = body.get('date', datetime.now().strftime('%Y-%m-%d'))
+                strategy = body.get('strategy', '')
+                if not strategy:
+                    self._json_response({'ok': False, 'error': 'strategy required'})
+                    return
+                if not validate_date(date):
+                    self._json_response({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'})
+                    return
+                removed = self.engine._daily_tracker.force_clear_strategy(date, strategy)
+                self._json_response({'ok': True, 'removed': removed})
+            except Exception as e:
+                self._json_response({'ok': False, 'error': str(e)})
         elif path == '/api/importa_giocata':
             try:
                 data = self._read_json()
