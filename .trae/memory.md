@@ -27,3 +27,13 @@
 - Note: funzione show_first_run_notification() (L128-155) NON viene chiamata — logica notifica è inline a L194-238
 - Azioni prioritarie: fix import rotti, EnumWindows, cleanup ordinato, centralizzare logging, cache Auto strategy, rimuovere checkShowClear() duplicato
 - **Status: FIX IMPLEMENTATI E MERGED SU MASTER (2026-09-07)**
+
+## AUDIT RIGOROSO SUPERENALOTTO (2026-09-08) — COMPLETATO E MERGED
+- Commit: f630e87 su master (fast-forward da agent/run)
+- Nuovi file: rigorous_backtest_audit.py (1274 righe, solo stdlib), AUDIT_RIGOROSO_SUPERENALOTTO.md (184 righe), rigorous_audit_results.json (535 righe)
+- Metodologia: walk-forward out-of-sample (train=300, block=200) su 4238 estrazioni (1997-12-03 → 2026-09-04), 21 strategie (16 esistenti + 4 nuove + random baseline)
+- Risultati chiave: uniformita' confermata (chi2=93.02, df=89, p=0.364); tutte le 20 strategie NON statisticamente significative (pFDR 0.96-1.0) e con ROI negativo (peggiore Optimized -74.23%, migliore HotCold -49.8%); house edge ~67%
+- Bug corretti durante verifica red-team: segno in norm_isf (Acklam), monotonicita' benjamini_hochberg, frazione continua di Lentz in chi_square_sf (c=1e300)
+- .trae/verify.ps1 esteso con collaudo Python: compilazione py_compile, esecuzione audit, validazione JSON, sanity check ROI negativo
+- Collaudo: superato al 1° ciclo (exit 0)
+- Note: dist/SuperEnalotto.exe resta modificato e NON committato (binario); nessuna strategia e' economicamente sostenibile — gioco solo come intrattenimento con budget limitato
