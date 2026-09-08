@@ -377,10 +377,14 @@ function renderDailyStatus(data) {
     const entries = Object.entries(strategies);
     const played = entries.filter(([,v]) => v.played).length;
     const total = entries.length;
+    const isDraw = data.is_draw_day !== undefined ? data.is_draw_day : true;
     let html = `<div class="daily-header">
         <h4>Gioco Responsabile — ${escapeHtml(data.date)}</h4>
-        <span class="daily-counter">${played}/${total} strategie utilizzate oggi</span>
+        <span class="daily-counter">${played} strategie utilizzate oggi (max ${escapeHtml(data.max_daily || 5)})</span>
     </div>`;
+    if (!isDraw) {
+        html += `<p style="font-size:12px; color:var(--warning); margin-bottom:10px;">⚠️ Oggi non è un giorno di estrazione. Le schedine del giorno sono disponibili solo nei giorni di estrazione (Mar, Mer, Gio, Ven, Sab).</p>`;
+    }
     html += '<div class="daily-tiers">';
     const tiers = { A: { label: 'Tier A — Priorità Alta', color: '#22c55e' }, B: { label: 'Tier B — Priorità Media', color: '#f59e0b' }, C: { label: 'Tier C — Esplorativa', color: '#94a3b8' } };
     for (const [tierKey, tierInfo] of Object.entries(tiers)) {
@@ -391,9 +395,10 @@ function renderDailyStatus(data) {
         for (const [name, info] of tierEntries) {
             const statusClass = info.played ? 'played' : 'available';
             const playedLabel = info.played ? (info.is_override ? 'Override' : 'Giocata') : 'Disponibile';
+            const rankLabel = info.rank != null ? `Classifica #${escapeHtml(info.rank)}` : '';
             html += `<div class="daily-strategy ${statusClass}">
                 <div class="daily-strat-info">
-                    <span class="daily-priority">#${escapeHtml(info.priority)}</span>
+                    <span class="daily-priority">${rankLabel || '#'+escapeHtml(info.priority)}</span>
                     <strong>${escapeHtml(info.label)}</strong>
                     <span class="daily-transparency">${escapeHtml(info.transparency)}</span>
                 </div>
@@ -412,32 +417,42 @@ function renderDailyStatus(data) {
 
 async function generaGiornaliera() {
     const status = document.getElementById('dailyGenerateStatus');
-    if (status) status.textContent = 'Generazione schedina del giorno...';
+    const numInput = document.getElementById('dailyNumSchedine');
+    const num = numInput ? Math.max(1, Math.min(5, parseInt(numInput.value) || 1)) : 1;
+    if (status) status.textContent = `Generazione di ${num} schedina/e del giorno...`;
     try {
-        const r = await apiGet('/api/daily/generate');
+        const r = await apiGet(`/api/daily/generate?n=${num}`);
+        // Gestione blocco con messaggio
+        if (r.blocked) {
+            if (status) status.textContent = `🚫 Bloccato: ${escapeHtml(r.error || 'Operazione non consentita')}`;
+            return;
+        }
         if (r.error) {
             if (status) status.textContent = `⚠️ ${escapeHtml(r.error)}`;
             return;
         }
-        if (r.blocked) {
-            if (status) status.textContent = `🚫 Bloccato: ${escapeHtml(r.error || 'Strategia non disponibile')}`;
-            return;
-        }
         const container = document.getElementById('dailyResult');
+        const list = r.schedine || [];
         if (container) {
-            container.innerHTML = `<div class="schedina">
-                <div class="daily-result-header">
-                    <span class="daily-badge tier-${escapeHtml(r.tier)}">Tier ${escapeHtml(r.tier)} — Priorità #${escapeHtml(r.priority)}</span>
-                    ${r.is_override ? '<span class="daily-badge override">Override</span>' : ''}
-                </div>
-                <span class="schedina-num">${escapeHtml(r.label)} (${escapeHtml(r.strategy)}):</span>
-                <span class="schedina-nums">${escapeHtml(r.nums.join(' - '))}</span>
-                <span class="schedina-somma">[${escapeHtml(r.somma)}]</span>
-                <div class="daily-transparency-note">${escapeHtml(r.transparency)}</div>
-            </div>`;
+            if (list.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted)">Nessuna schedina generata.</p>';
+            } else {
+                container.innerHTML = list.map((sched, i) =>
+                    `<div class="schedina">
+                        <div class="daily-result-header">
+                            <span class="daily-badge tier-${escapeHtml(sched.tier)}">Tier ${escapeHtml(sched.tier)} — Classifica #${escapeHtml(sched.rank || sched.priority || '?')}</span>
+                            ${sched.is_override ? '<span class="daily-badge override">Override</span>' : ''}
+                        </div>
+                        <span class="schedina-num">${escapeHtml(sched.label)} (${escapeHtml(sched.strategy)}):</span>
+                        <span class="schedina-nums">${escapeHtml(sched.nums.join(' - '))}</span>
+                        <span class="schedina-somma">[${escapeHtml(sched.somma)}]</span>
+                        <div class="daily-transparency-note">${escapeHtml(sched.transparency)}</div>
+                    </div>`
+                ).join('');
+            }
             container.style.display = 'block';
         }
-        if (status) status.textContent = `✅ Generata: ${escapeHtml(r.label)} — somma ${escapeHtml(r.somma)}`;
+        if (status) status.textContent = `✅ Generata/e ${list.length} schedina/e (tot. oggi: ${escapeHtml(r.count)}/${escapeHtml(r.max)})`;
         await loadDailyStatus();
     } catch (err) {
         if (status) status.textContent = 'Errore nella generazione';

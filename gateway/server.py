@@ -193,6 +193,13 @@ class SuperenalottoHandler(SimpleHTTPRequestHandler):
             try:
                 strategy = parse_qs(parsed.query).get('strategy', [None])[0]
                 override = parse_qs(parsed.query).get('override', ['0'])[0] in ('1', 'true')
+                n = parse_qs(parsed.query).get('n', [None])[0]
+                # Generazione multipla 1-5: se è richiesta una quantità e non una strategia specifica → genera_schedine_giornaliere
+                if n is not None and not strategy:
+                    num = int(n) if n.isdigit() else None
+                    result = self.engine.genera_schedine_giornaliere(num_schedine=num)
+                    self._json_response(result)
+                    return
                 result = self.engine.genera_unica_schedina_today(
                     strategy=strategy if strategy else None,
                     is_override=override

@@ -64,6 +64,9 @@ PREMI_DEFAULT = {2: 5.0, 3: 25.0, 4: 296.0, 5: 25847.0, 5.5: 100000.0, 6: 100000
 # Giorni estrazione (weekday: 0=Lun, 1=Mar, ..., 6=Dom)
 DRAW_DOWS = {1, 3, 4, 5}  # Mar, Gio, Ven, Sab
 
+# Tetto massimo di schedine giocabili al giorno (selezionabile dall'utente da 1 a 5)
+MAX_DAILY_SCHEDINE = 5
+
 # Numeri primi 1-90
 PRIMES = frozenset({2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89})
 
@@ -286,13 +289,23 @@ class DailyPlayTracker:
             date_str = d.strftime('%Y-%m-%d')
             dow = d.weekday()
             plays = self.get_daily_plays(date_str)
+            strategies = [p["strategy"] for p in plays]
+            is_draw = dow in DRAW_DOWS
+            # Compliance: tetto massimo 5 schedine nei giorni di estrazione,
+            # nessuna giocata fuori dai giorni di estrazione, strategie uniche
+            within_ceiling = len(plays) <= MAX_DAILY_SCHEDINE
+            unique_strategies = len(set(strategies)) == len(strategies)
+            no_play_off_draw = (not is_draw and len(plays) == 0) or is_draw
+            compliant = within_ceiling and unique_strategies and no_play_off_draw
             report.append({
                 "date": date_str,
-                "is_draw_day": dow in DRAW_DOWS,
+                "is_draw_day": is_draw,
                 "plays_count": len(plays),
-                "strategies_used": [p["strategy"] for p in plays],
+                "strategies_used": strategies,
                 "any_override": any(p["is_override"] for p in plays),
-                "compliant": len(plays) <= len(STRATEGY_PRIORITY_ORDER),
+                "compliant": compliant,
+                "within_ceiling": within_ceiling,
+                "unique_strategies": unique_strategies,
             })
             d -= timedelta(days=1)
             checked += 1
@@ -623,27 +636,156 @@ class SuperenalottoEngine:
         gen = self._get_strategies().get(strategy, self.quartile_spread)
         return [gen() for _ in range(n)]
 
+    # ── Classifica dinamica giornaliera ─────────────────────────────────
+    # MAX_DAILY_SCHEDINE: tetto massimo di schedine giocabili al giorno
+    # (costante globale). Solo nei giorni di estrazione (DRAW_DOWS). L'utente sceglie da 1 a 5.
+    MAX_DAILY_SCHEDINE = MAX_DAILY_SCHEDINE
+
+    def is_draw_day(self, date_str=None):
+        """True se la data specificata (default oggi) è un giorno di estrazione."""
+        if date_str is None:
+            date_str = datetime.now().strftime('%Y-%m-%d')
+        dow = datetime.strptime(date_str, '%Y-%m-%d').weekday()
+        return dow in DRAW_DOWS
+
+    def get_daily_priority_order(self):
+        """Ritorna l'ordine di priorità delle strategie per OGGI.
+        Ri-elabora la classifica con i test automatici sulle ultimi estrazioni
+        (dati aggiornati dopo ogni estrazione avvenuta) e ne estrae l'ordine
+        per score (pattern emergenti). In caso di errore ripiega sull'ordine Tier."""
+        try:
+            rankings = self.get_dynamic_ranking(n=50, seed=42)
+            if rankings:
+                return [r["strategy"] for r in rankings]
+        except Exception:
+            pass
+        return STRATEGY_PRIORITY_ORDER
+
     def can_strategy_play_today(self, strategy):
         """True se la strategia non ha ancora giocato oggi."""
         today = datetime.now().strftime('%Y-%m-%d')
         return self._daily_tracker.can_play(today, strategy)
 
-    def get_top_strategy_for_today(self):
-        """Ritorna la prima strategia disponibile per oggi secondo la priorità."""
+    def get_top_strategies_for_today(self, max_schedine=MAX_DAILY_SCHEDINE):
+        """Ritorna le prime `max_schedine` strategie disponibili per oggi,
+        secondo la classifica dinamica giornaliera (pattern emergenti).
+        Vincolo: solo nei giorni di estrazione e massimo MAX_DAILY_SCHEDINE."""
         today = datetime.now().strftime('%Y-%m-%d')
-        for name in STRATEGY_PRIORITY_ORDER:
+        if not self.is_draw_day(today):
+            return []
+        order = self.get_daily_priority_order()
+        available = []
+        for name in order:
             if self._daily_tracker.can_play(today, name):
-                return name
-        return None
+                available.append(name)
+            if len(available) >= max(1, min(int(max_schedine), self.MAX_DAILY_SCHEDINE)):
+                break
+        return available
+
+    def get_top_strategy_for_today(self):
+        """Ritorna la prima strategia disponibile per oggi secondo la classifica dinamica."""
+        top = self.get_top_strategies_for_today(1)
+        return top[0] if top else None
+
+    def genera_schedina_per_strategia(self, strategy, is_override=False):
+        """Genera ESATTAMENTE 1 schedina per la strategia specificata per oggi,
+        registrandola nel DailyPlayTracker. Ritorna dict con risultato o errore."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        if strategy not in STRATEGY_REGISTRY:
+            return {"error": f"Strategia '{strategy}' non valida.", "blocked": True}
+        # Tetto rigido: massimo MAX_DAILY_SCHEDINE schedine al giorno (anche con override)
+        if len(self._daily_tracker.get_daily_plays(today)) >= self.MAX_DAILY_SCHEDINE:
+            return {
+                "error": f"Massimo {self.MAX_DAILY_SCHEDINE} schedine giornaliere già raggiunto.",
+                "blocked": True,
+            }
+        if not is_override and not self.can_strategy_play_today(strategy):
+            info = STRATEGY_REGISTRY[strategy]
+            return {
+                "error": f"Strategia '{info['label']}' ha già giocato oggi (priorità #{info['priority']}). "
+                         f"Usa override per sovrascrivere.",
+                "blocked": True,
+                "strategy_info": info,
+            }
+        nums = self.genera_schedine(1, strategy=strategy)[0]
+        somma = sum(nums)
+        recorded = self._daily_tracker.record_play(today, strategy, nums, somma, is_override=is_override)
+        if not recorded:
+            return {"error": "Bloccato: giocata già registrata per questa strategia oggi.", "blocked": True}
+        info = STRATEGY_REGISTRY.get(strategy, {})
+        return {
+            "nums": nums,
+            "somma": somma,
+            "strategy": strategy,
+            "label": info.get("label", strategy),
+            "tier": info.get("tier", "?"),
+            "rank": self.get_daily_rank(strategy),
+            "transparency": info.get("transparency", ""),
+            "is_override": is_override,
+            "date": today,
+        }
+
+    def get_daily_rank(self, strategy):
+        """Posizione della strategia nella classifica dinamica di oggi (1-based), o prioretta fissa."""
+        order = self.get_daily_priority_order()
+        try:
+            return order.index(strategy) + 1
+        except ValueError:
+            return STRATEGY_REGISTRY.get(strategy, {}).get('priority', 0)
+
+    def genera_schedine_giornaliere(self, num_schedine=None):
+        """Genera le schedine del giorno conformi alle regole:
+        - massimo `num_schedine` (default 5) schedine
+        - una per strategia, in ordine di classifica dinamica
+        - SOLO nei giorni di estrazione
+        Ritorna dict con {schedine: [...], count, max, blocked: bool}."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        if not self.is_draw_day(today):
+            return {"blocked": True, "error": "Oggi non è un giorno di estrazione. Le schedine sono disponibili solo nei giorni: Mar, Mer, Gio, Ven, Sab.", "schedine": []}
+        if num_schedine is None:
+            num_schedine = self.MAX_DAILY_SCHEDINE
+        num_schedine = max(1, min(int(num_schedine), self.MAX_DAILY_SCHEDINE))
+        # Verifica quante già giocate oggi
+        already = self._daily_tracker.get_daily_plays(today)
+        already_count = len(already)
+        remaining = num_schedine - already_count
+        if remaining <= 0:
+            return {"blocked": True, "error": f"Massimo {self.MAX_DAILY_SCHEDINE} schedine giornaliere già raggiunto (ne hai generate {already_count} oggi).", "schedine": [], "count": already_count, "max": self.MAX_DAILY_SCHEDINE}
+        order = self.get_daily_priority_order()
+        strategie_giocate = {p["strategy"] for p in already}
+        scelte = []
+        for name in order:
+            if name not in strategie_giocate:
+                scelte.append(name)
+            if len(scelte) >= remaining:
+                break
+        if not scelte:
+            return {"blocked": True, "error": "Nessuna strategia disponibile per generare altre schedine oggi.", "schedine": [], "count": already_count, "max": self.MAX_DAILY_SCHEDINE}
+        schedine = []
+        for name in scelte:
+            res = self.genera_schedina_per_strategia(name)
+            if not res.get('blocked'):
+                schedine.append(res)
+        return {
+            "schedine": schedine,
+            "count": already_count + len(schedine),
+            "max": self.MAX_DAILY_SCHEDINE,
+            "blocked": False,
+            "date": today,
+        }
 
     def genera_unica_schedina_today(self, strategy=None, is_override=False):
-        """Genera esattamente 1 schedina per oggi. Se strategy=None usa la top disponibile.
-        Registra nel DailyPlayTracker. Ritorna dict con risultato o errore."""
+        """Genera ESATTAMENTE 1 schedina per oggi.
+        Se strategy=None usa la top strategia disponibile (classifica dinamica).
+        NOTA: quando strategy è specificata e non è la top prioritaria, va giocata comunque
+        se non è ancora stata usata oggi. Registra nel DailyPlayTracker."""
         today = datetime.now().strftime('%Y-%m-%d')
         if strategy is None:
+            if not self.is_draw_day(today):
+                return {"blocked": True, "error": "Oggi non è un giorno di estrazione."}
             strategy = self.get_top_strategy_for_today()
             if strategy is None:
-                return {"error": "Tutte le strategie hanno già giocato oggi.", "blocked": True}
+                return {"blocked": True, "error": "Tutte le strategie hanno già giocato oggi, o massimo giocate raggiunto."}
         else:
             if strategy not in STRATEGY_REGISTRY:
                 return {"error": f"Strategia '{strategy}' non valida.", "blocked": True}
@@ -655,6 +797,13 @@ class SuperenalottoEngine:
                     "blocked": True,
                     "strategy_info": info,
                 }
+
+        # Tetto rigido: massimo MAX_DAILY_SCHEDINE schedine al giorno (anche con override)
+        if len(self._daily_tracker.get_daily_plays(today)) >= self.MAX_DAILY_SCHEDINE:
+            return {
+                "blocked": True,
+                "error": f"Massimo {self.MAX_DAILY_SCHEDINE} schedine giornaliere già raggiunto.",
+            }
 
         nums = self.genera_schedine(1, strategy=strategy)[0]
         somma = sum(nums)
@@ -670,14 +819,25 @@ class SuperenalottoEngine:
             "label": info.get("label", strategy),
             "tier": info.get("tier", "?"),
             "priority": info.get("priority", 0),
+            "rank": self.get_daily_rank(strategy),
             "transparency": info.get("transparency", ""),
             "is_override": is_override,
             "date": today,
         }
 
     def get_strategy_ranking(self):
-        """Ritorna la lista ordinata delle strategie con stato di gioco per oggi."""
-        return self._daily_tracker.get_daily_status()
+        """Ritorna la lista ordinata delle strategie con stato di gioco per oggi,
+        arricchita con rank dinamico (classifica su dati aggiornati), stato giorno
+        di estrazione e tetto massimo giornaliero."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        data = self._daily_tracker.get_daily_status(today)
+        order = self.get_daily_priority_order()
+        rank_map = {name: i + 1 for i, name in enumerate(order)}
+        for name, info in data.get('strategies', {}).items():
+            info['rank'] = rank_map.get(name, info.get('priority', 0))
+        data['is_draw_day'] = self.is_draw_day(today)
+        data['max_daily'] = self.MAX_DAILY_SCHEDINE
+        return data
 
     def get_7day_enforcement_report(self):
         """Ritorna il report di compliance degli ultimi 7 giorni."""
